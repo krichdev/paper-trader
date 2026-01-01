@@ -137,9 +137,10 @@ async def get_current_state() -> dict:
     """Get current state of all active loggers"""
     state = {
         "active_games": [],
-        "recent_ticks": {}
+        "recent_ticks": {},
+        "active_bots": list(active_bots.keys())
     }
-    
+
     for ticker, logger in active_loggers.items():
         state["active_games"].append({
             "event_ticker": ticker,
@@ -148,11 +149,11 @@ async def get_current_state() -> dict:
             "status": logger.status,
             "tick_count": logger.tick_count
         })
-        
+
         # Get last 5 ticks
         ticks = await db.get_recent_ticks(ticker, limit=5)
         state["recent_ticks"][ticker] = ticks
-    
+
     return state
 
 
@@ -369,7 +370,13 @@ async def start_bot(event_ticker: str, config: BotConfig):
     
     active_bots[event_ticker] = bot
     active_loggers[event_ticker].attach_bot(bot)
-    
+
+    # Broadcast bot started to all clients
+    await broadcast_update({
+        "type": "bot_started",
+        "event_ticker": event_ticker
+    })
+
     return {"status": "started", "config": config.dict()}
 
 
@@ -382,9 +389,15 @@ async def stop_bot(event_ticker: str):
     
     if event_ticker in active_loggers:
         active_loggers[event_ticker].detach_bot()
-    
+
     del active_bots[event_ticker]
-    
+
+    # Broadcast bot stopped to all clients
+    await broadcast_update({
+        "type": "bot_stopped",
+        "event_ticker": event_ticker
+    })
+
     return {"status": "stopped"}
 
 

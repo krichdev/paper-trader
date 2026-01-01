@@ -74,9 +74,29 @@ function App() {
       if (lastMessage.event_ticker) {
         loadBotTrades(lastMessage.event_ticker);
       }
+    } else if (lastMessage.type === 'bot_started') {
+      if (lastMessage.event_ticker) {
+        setBotRunning(prev => ({ ...prev, [lastMessage.event_ticker]: true }));
+        loadBotTrades(lastMessage.event_ticker);
+      }
+    } else if (lastMessage.type === 'bot_stopped') {
+      if (lastMessage.event_ticker) {
+        setBotRunning(prev => ({ ...prev, [lastMessage.event_ticker]: false }));
+      }
     } else if (lastMessage.type === 'init') {
       if (lastMessage.data?.active_games) {
         setActiveGames(lastMessage.data.active_games);
+      }
+      if (lastMessage.data?.active_bots) {
+        const runningBots: Record<string, boolean> = {};
+        lastMessage.data.active_bots.forEach((ticker: string) => {
+          runningBots[ticker] = true;
+        });
+        setBotRunning(runningBots);
+        // Load trades for active bots
+        lastMessage.data.active_bots.forEach((ticker: string) => {
+          loadBotTrades(ticker);
+        });
       }
     }
   }, [lastMessage]);

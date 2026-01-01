@@ -1,0 +1,364 @@
+"""
+Database module - Async Postgres with connection pooling
+"""
+
+import asyncpg
+from datetime import datetime, timezone
+from typing import Optional, List, Dict, Any
+from dataclasses import dataclass
+
+
+@dataclass
+class GameTick:
+    event_ticker: str
+    tick: int
+    timestamp: datetime
+    home_team: str
+    away_team: str
+    home_price: int
+    away_price: int
+    home_bid: int
+    home_ask: int
+    away_bid: int
+    away_ask: int
+    home_volume: int
+    away_volume: int
+    quarter: int
+    clock: str
+    home_score: int
+    away_score: int
+    score_diff: int
+    possession_team_id: str
+    down: int
+    yards_to_go: int
+    yardline: int
+    goal_to_go: bool
+    status: str
+    last_play: str
+
+
+@dataclass
+class GameSession:
+    event_ticker: str
+    milestone_id: str
+    home_team: str
+    away_team: str
+    status: str
+    started_at: datetime
+    last_tick: int
+
+
+@dataclass
+class BotTrade:
+    id: int
+    event_ticker: str
+    side: str
+    team: str
+    entry_price: int
+    entry_tick: int
+    entry_time: datetime
+    exit_price: Optional[int]
+    exit_tick: Optional[int]
+    exit_time: Optional[datetime]
+    exit_reason: Optional[str]
+    pnl: Optional[float]
+    config_snapshot: dict
+
+
+class Database:
+    def __init__(self, database_url: str):
+        self.database_url = database_url
+        self.pool: Optional[asyncpg.Pool] = None
+    
+    async def connect(self):
+        """Create connection pool"""
+        self.pool = await asyncpg.create_pool(
+            self.database_url,
+            min_size=2,
+            max_size=10
+        )
+    
+    async def disconnect(self):
+        """Close connection pool"""
+        if self.pool:
+            await self.pool.close()
+    
+    async def create_tables(self):
+        """Create tables if they don't exist"""
+        async with self.pool.acquire() as conn:
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS game_sessions (
+                    event_ticker TEXT PRIMARY KEY,
+                    milestone_id TEXT NOT NULL,
+                    home_team TEXT,
+                    away_team TEXT,
+                    status TEXT DEFAULT 'active',
+                    started_at TIMESTAMPTZ DEFAULT NOW(),
+                    last_tick INT DEFAULT 0
+                )
+            """)
+            
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS game_ticks (
+                    id SERIAL PRIMARY KEY,
+                    event_ticker TEXT NOT NULL,
+                    tick INT NOT NULL,
+                    timestamp TIMESTAMPTZ NOT NULL,
+                    home_team TEXT,
+                    away_team TEXT,
+                    home_price INT,
+                    away_price INT,
+                    home_bid INT,
+                    home_ask INT,
+                    away_bid INT,
+                    away_ask INT,
+                    home_volume BIGINT,
+                    away_volume BIGINT,
+                    quarter INT,
+                    clock TEXT,
+                    home_score INT,
+                    away_score INT,
+                    score_diff INT,
+                    possession_team_id TEXT,
+                    down INT,
+                    yards_to_go INT,
+                    yardline INT,
+                    goal_to_go BOOLEAN,
+                    status TEXT,
+                    last_play TEXT,
+                    UNIQUE(event_ticker, tick)
+                )
+            """)
+            
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS bot_trades (
+                    id SERIAL PRIMARY KEY,
+                    event_ticker TEXT NOT NULL,
+                    side TEXT NOT NULL,
+                    team TEXT,
+                    entry_price INT NOT NULL,
+                    entry_tick INT NOT NULL,
+                    entry_time TIMESTAMPTZ NOT NULL,
+                    exit_price INT,
+                    exit_tick INT,
+                    exit_time TIMESTAMPTZ,
+                    exit_reason TEXT,
+                    pnl FLOAT,
+                    config_snapshot JSONB
+                )
+            """)
+            
+            # Create indexes
+            await conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_ticks_event ON game_ticks(event_ticker)
+            """)
+            await conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_ticks_event_tick ON game_ticks(event_ticker, tick)
+            """)
+            await conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_trades_event ON bot_trades(event_ticker)
+            """)
+    
+    # ========================================================================
+    # SESSION METHODS
+    # ========================================================================
+    
+    async def create_session(self, event_ticker: str, milestone_id: str) -> None:
+        """Create a new game session"""
+        async with self.pool.acquire() as conn:
+            await conn.execute("""
+                INSERT INTO game_sessions (event_ticker, milestone_id)
+                VALUES ($1, $2)
+                ON CONFLICT (event_ticker) DO UPDATE SET
+                    status = 'active',
+                    milestone_id = $2
+            """, event_ticker, milestone_id)
+    
+    async def get_session(self, event_ticker: str) -> Optional[Dict]:
+        """Get session by event ticker"""
+        async with self.pool.acquire() as conn:
+            row = await conn.fetchrow("""
+                SELECT * FROM game_sessions WHERE event_ticker = $1
+            """, event_ticker)
+            return dict(row) if row else None
+    
+    async def get_active_sessions(self) -> List[Dict]:
+        """Get all active sessions"""
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT * FROM game_sessions WHERE status = 'active'
+            """)
+            return [dict(row) for row in rows]
+    
+    async def get_all_sessions(self) -> List[Dict]:
+        """Get all sessions"""
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT * FROM game_sessions ORDER BY started_at DESC
+            """)
+            return [dict(row) for row in rows]
+    
+    async def update_session_status(self, event_ticker: str, status: str) -> None:
+        """Update session status"""
+        async with self.pool.acquire() as conn:
+            await conn.execute("""
+                UPDATE game_sessions SET status = $2 WHERE event_ticker = $1
+            """, event_ticker, status)
+    
+    async def update_session_teams(self, event_ticker: str, home_team: str, away_team: str) -> None:
+        """Update session team names"""
+        async with self.pool.acquire() as conn:
+            await conn.execute("""
+                UPDATE game_sessions SET home_team = $2, away_team = $3 WHERE event_ticker = $1
+            """, event_ticker, home_team, away_team)
+    
+    async def update_session_tick(self, event_ticker: str, tick: int) -> None:
+        """Update last tick for session"""
+        async with self.pool.acquire() as conn:
+            await conn.execute("""
+                UPDATE game_sessions SET last_tick = $2 WHERE event_ticker = $1
+            """, event_ticker, tick)
+    
+    # ========================================================================
+    # TICK METHODS
+    # ========================================================================
+    
+    async def insert_tick(self, tick: Dict) -> None:
+        """Insert a new tick"""
+        async with self.pool.acquire() as conn:
+            await conn.execute("""
+                INSERT INTO game_ticks (
+                    event_ticker, tick, timestamp, home_team, away_team,
+                    home_price, away_price, home_bid, home_ask, away_bid, away_ask,
+                    home_volume, away_volume, quarter, clock, home_score, away_score,
+                    score_diff, possession_team_id, down, yards_to_go, yardline,
+                    goal_to_go, status, last_play
+                ) VALUES (
+                    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
+                    $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25
+                )
+                ON CONFLICT (event_ticker, tick) DO NOTHING
+            """,
+                tick['event_ticker'], tick['tick'], tick['timestamp'],
+                tick.get('home_team'), tick.get('away_team'),
+                tick.get('home_price'), tick.get('away_price'),
+                tick.get('home_bid'), tick.get('home_ask'),
+                tick.get('away_bid'), tick.get('away_ask'),
+                tick.get('home_volume'), tick.get('away_volume'),
+                tick.get('quarter'), tick.get('clock'),
+                tick.get('home_score'), tick.get('away_score'),
+                tick.get('score_diff'), tick.get('possession_team_id'),
+                tick.get('down'), tick.get('yards_to_go'), tick.get('yardline'),
+                tick.get('goal_to_go'), tick.get('status'), tick.get('last_play')
+            )
+    
+    async def get_ticks(self, event_ticker: str, limit: int = 100, offset: int = 0) -> List[Dict]:
+        """Get ticks for a game with pagination"""
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT * FROM game_ticks 
+                WHERE event_ticker = $1 
+                ORDER BY tick DESC
+                LIMIT $2 OFFSET $3
+            """, event_ticker, limit, offset)
+            return [dict(row) for row in rows]
+    
+    async def get_recent_ticks(self, event_ticker: str, limit: int = 5) -> List[Dict]:
+        """Get most recent ticks"""
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT * FROM game_ticks 
+                WHERE event_ticker = $1 
+                ORDER BY tick DESC
+                LIMIT $2
+            """, event_ticker, limit)
+            return [dict(row) for row in rows]
+    
+    async def get_all_ticks(self, event_ticker: str) -> List[Dict]:
+        """Get all ticks for export"""
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT * FROM game_ticks 
+                WHERE event_ticker = $1 
+                ORDER BY tick ASC
+            """, event_ticker)
+            return [dict(row) for row in rows]
+    
+    async def get_tick_count(self, event_ticker: str) -> int:
+        """Get total tick count for a game"""
+        async with self.pool.acquire() as conn:
+            result = await conn.fetchval("""
+                SELECT COUNT(*) FROM game_ticks WHERE event_ticker = $1
+            """, event_ticker)
+            return result or 0
+    
+    async def get_last_tick(self, event_ticker: str) -> Optional[Dict]:
+        """Get most recent tick"""
+        async with self.pool.acquire() as conn:
+            row = await conn.fetchrow("""
+                SELECT * FROM game_ticks 
+                WHERE event_ticker = $1 
+                ORDER BY tick DESC
+                LIMIT 1
+            """, event_ticker)
+            return dict(row) if row else None
+    
+    # ========================================================================
+    # BOT TRADE METHODS
+    # ========================================================================
+    
+    async def insert_trade(self, trade: Dict) -> int:
+        """Insert a new trade, return trade ID"""
+        async with self.pool.acquire() as conn:
+            trade_id = await conn.fetchval("""
+                INSERT INTO bot_trades (
+                    event_ticker, side, team, entry_price, entry_tick, entry_time, config_snapshot
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+                RETURNING id
+            """,
+                trade['event_ticker'], trade['side'], trade.get('team'),
+                trade['entry_price'], trade['entry_tick'], trade['entry_time'],
+                trade.get('config_snapshot')
+            )
+            return trade_id
+    
+    async def update_trade_exit(self, trade_id: int, exit_data: Dict) -> None:
+        """Update trade with exit info"""
+        async with self.pool.acquire() as conn:
+            await conn.execute("""
+                UPDATE bot_trades SET
+                    exit_price = $2,
+                    exit_tick = $3,
+                    exit_time = $4,
+                    exit_reason = $5,
+                    pnl = $6
+                WHERE id = $1
+            """,
+                trade_id,
+                exit_data['exit_price'],
+                exit_data['exit_tick'],
+                exit_data['exit_time'],
+                exit_data['exit_reason'],
+                exit_data['pnl']
+            )
+    
+    async def get_bot_trades(self, event_ticker: str) -> List[Dict]:
+        """Get all trades for a game"""
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT * FROM bot_trades 
+                WHERE event_ticker = $1 
+                ORDER BY entry_tick ASC
+            """, event_ticker)
+            return [dict(row) for row in rows]
+    
+    async def get_open_trade(self, event_ticker: str) -> Optional[Dict]:
+        """Get open trade (no exit) for a game"""
+        async with self.pool.acquire() as conn:
+            row = await conn.fetchrow("""
+                SELECT * FROM bot_trades 
+                WHERE event_ticker = $1 AND exit_price IS NULL
+                ORDER BY entry_tick DESC
+                LIMIT 1
+            """, event_ticker)
+            return dict(row) if row else None

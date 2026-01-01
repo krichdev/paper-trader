@@ -59,7 +59,13 @@ function App() {
     if (!lastMessage) return;
 
     if (lastMessage.type === 'tick') {
-      setActiveGames(prev => prev.map(game => 
+      setActiveGames(prev => prev.map(game =>
+        game.event_ticker === lastMessage.event_ticker
+          ? { ...game, ...lastMessage.data }
+          : game
+      ));
+    } else if (lastMessage.type === 'team_info') {
+      setActiveGames(prev => prev.map(game =>
         game.event_ticker === lastMessage.event_ticker
           ? { ...game, ...lastMessage.data }
           : game

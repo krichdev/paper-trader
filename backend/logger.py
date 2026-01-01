@@ -101,10 +101,21 @@ class GameLogger:
                         
                         # Update session with team names
                         await self.db.update_session_teams(
-                            self.event_ticker, 
-                            self.home_team, 
+                            self.event_ticker,
+                            self.home_team,
                             self.away_team
                         )
+
+                        # Broadcast team info to frontend immediately
+                        if self.broadcast_fn:
+                            await self.broadcast_fn({
+                                "type": "team_info",
+                                "event_ticker": self.event_ticker,
+                                "data": {
+                                    "home_team": self.home_team,
+                                    "away_team": self.away_team
+                                }
+                            })
             except Exception as e:
                 print(f"Error fetching team info: {e}")
     

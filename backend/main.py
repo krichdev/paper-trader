@@ -102,23 +102,35 @@ async def broadcast_update(data: dict):
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     websocket_clients.append(websocket)
-    
+
     try:
         # Send current state on connect
         state = await get_current_state()
         await websocket.send_text(json.dumps({"type": "init", "data": state}))
-        
+
         while True:
             # Keep connection alive, handle incoming messages
-            data = await websocket.receive_text()
-            msg = json.loads(data)
-            
-            # Handle ping/pong
-            if msg.get("type") == "ping":
-                await websocket.send_text(json.dumps({"type": "pong"}))
-    
+            try:
+                data = await asyncio.wait_for(websocket.receive_text(), timeout=60.0)
+                msg = json.loads(data)
+
+                # Handle ping/pong
+                if msg.get("type") == "ping":
+                    await websocket.send_text(json.dumps({"type": "pong"}))
+            except asyncio.TimeoutError:
+                # Send ping to client to check if still alive
+                try:
+                    await websocket.send_text(json.dumps({"type": "ping"}))
+                except:
+                    break
+
     except WebSocketDisconnect:
-        websocket_clients.remove(websocket)
+        if websocket in websocket_clients:
+            websocket_clients.remove(websocket)
+    except Exception as e:
+        print(f"WebSocket error: {e}")
+        if websocket in websocket_clients:
+            websocket_clients.remove(websocket)
 
 
 async def get_current_state() -> dict:

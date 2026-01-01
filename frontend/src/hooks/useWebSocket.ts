@@ -20,6 +20,8 @@ export function useWebSocket(url: string) {
       ws.onopen = () => {
         console.log('WebSocket connected');
         setIsConnected(true);
+        // Send initial ping to establish communication
+        ws.send(JSON.stringify({ type: 'ping' }));
       };
 
       ws.onmessage = (event) => {
@@ -50,6 +52,13 @@ export function useWebSocket(url: string) {
   useEffect(() => {
     connect();
 
+    // Send ping every 30 seconds to keep connection alive
+    const pingInterval = window.setInterval(() => {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ type: 'ping' }));
+      }
+    }, 30000);
+
     return () => {
       if (wsRef.current) {
         wsRef.current.close();
@@ -57,6 +66,7 @@ export function useWebSocket(url: string) {
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
       }
+      clearInterval(pingInterval);
     };
   }, [connect]);
 

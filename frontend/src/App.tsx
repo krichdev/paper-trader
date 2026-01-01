@@ -224,7 +224,7 @@ function App() {
           </div>
 
           {/* Bot Panel Sidebar */}
-          <div className="space-y-4">
+          <div className="space-y-6">
             {selectedGame && isSelectedActive ? (
               <BotPanel
                 eventTicker={selectedGame}

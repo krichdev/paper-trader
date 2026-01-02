@@ -267,12 +267,19 @@ class Database:
         """Get most recent ticks"""
         async with self.pool.acquire() as conn:
             rows = await conn.fetch("""
-                SELECT * FROM game_ticks 
-                WHERE event_ticker = $1 
+                SELECT * FROM game_ticks
+                WHERE event_ticker = $1
                 ORDER BY tick DESC
                 LIMIT $2
             """, event_ticker, limit)
-            return [dict(row) for row in rows]
+            result = []
+            for row in rows:
+                tick_dict = dict(row)
+                # Convert datetime to ISO string for JSON serialization
+                if 'timestamp' in tick_dict and tick_dict['timestamp']:
+                    tick_dict['timestamp'] = tick_dict['timestamp'].isoformat()
+                result.append(tick_dict)
+            return result
     
     async def get_all_ticks(self, event_ticker: str) -> List[Dict]:
         """Get all ticks for export"""

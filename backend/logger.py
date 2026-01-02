@@ -146,10 +146,15 @@ class GameLogger:
         
         # Broadcast to WebSocket clients
         if self.broadcast_fn:
+            # Convert datetime to string for JSON serialization
+            tick_data = tick.copy()
+            if 'timestamp' in tick_data and tick_data['timestamp']:
+                tick_data['timestamp'] = tick_data['timestamp'].isoformat()
+
             await self.broadcast_fn({
                 "type": "tick",
                 "event_ticker": self.event_ticker,
-                "data": tick
+                "data": tick_data
             })
         
         # Check if game ended

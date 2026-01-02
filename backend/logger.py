@@ -150,6 +150,8 @@ class GameLogger:
             tick_data = tick.copy()
             if 'timestamp' in tick_data and tick_data['timestamp']:
                 tick_data['timestamp'] = tick_data['timestamp'].isoformat()
+            # Add tick_count for frontend compatibility
+            tick_data['tick_count'] = self.tick_count
 
             await self.broadcast_fn({
                 "type": "tick",

@@ -75,13 +75,15 @@ function App() {
         loadBotTrades(lastMessage.event_ticker);
       }
     } else if (lastMessage.type === 'bot_started') {
-      if (lastMessage.event_ticker) {
-        setBotRunning(prev => ({ ...prev, [lastMessage.event_ticker]: true }));
-        loadBotTrades(lastMessage.event_ticker);
+      const ticker = lastMessage.event_ticker;
+      if (ticker) {
+        setBotRunning(prev => ({ ...prev, [ticker]: true }));
+        loadBotTrades(ticker);
       }
     } else if (lastMessage.type === 'bot_stopped') {
-      if (lastMessage.event_ticker) {
-        setBotRunning(prev => ({ ...prev, [lastMessage.event_ticker]: false }));
+      const ticker = lastMessage.event_ticker;
+      if (ticker) {
+        setBotRunning(prev => ({ ...prev, [ticker]: false }));
       }
     } else if (lastMessage.type === 'init') {
       if (lastMessage.data?.active_games) {

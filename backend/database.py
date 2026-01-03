@@ -233,14 +233,14 @@ class Database:
     # USER METHODS
     # ========================================================================
 
-    async def create_user(self, username: str, password_hash: str) -> int:
+    async def create_user(self, username: str, password_hash: str, starting_balance: float = 10000.0) -> int:
         """Create a new user, return user ID"""
         async with self.pool.acquire() as conn:
             user_id = await conn.fetchval("""
-                INSERT INTO users (username, password_hash)
-                VALUES ($1, $2)
+                INSERT INTO users (username, password_hash, starting_balance, current_balance)
+                VALUES ($1, $2, $3, $3)
                 RETURNING id
-            """, username, password_hash)
+            """, username, password_hash, starting_balance)
             return user_id
 
     async def get_user_by_username(self, username: str) -> Optional[Dict]:
@@ -286,6 +286,34 @@ class Database:
                 ORDER BY created_at DESC
                 LIMIT $2
             """, user_id, limit)
+            return [dict(row) for row in rows]
+
+    async def get_user_trades(self, user_id: int) -> List[Dict]:
+        """Get all trades for a user"""
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT * FROM bot_trades
+                WHERE user_id = $1
+                ORDER BY entry_time DESC
+            """, user_id)
+            return [dict(row) for row in rows]
+
+    async def get_user_active_bots(self, user_id: int) -> List[Dict]:
+        """Get user's currently active bots"""
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT gs.event_ticker, gs.home_team, gs.away_team,
+                       gs.live_bot_active, gs.live_bot_bankroll, gs.live_bot_starting_bankroll
+                FROM game_sessions gs
+                WHERE gs.live_bot_active = TRUE
+                AND EXISTS (
+                    SELECT 1 FROM bot_trades bt
+                    WHERE bt.event_ticker = gs.event_ticker
+                    AND bt.user_id = $1
+                    AND bt.exit_price IS NULL
+                )
+                ORDER BY gs.last_tick DESC
+            """, user_id)
             return [dict(row) for row in rows]
 
     # ========================================================================

@@ -193,6 +193,7 @@ async def get_current_state() -> dict:
 class RegisterRequest(BaseModel):
     username: str
     password: str
+    starting_balance: float = 10000.0  # Default to $10,000 if not specified
 
 class LoginRequest(BaseModel):
     username: str
@@ -212,9 +213,13 @@ async def register(request: RegisterRequest, response: Response):
         if existing_user:
             raise HTTPException(status_code=400, detail="Username already taken")
 
+        # Validate starting balance
+        if request.starting_balance < 100 or request.starting_balance > 1000000:
+            raise HTTPException(status_code=400, detail="Starting balance must be between $100 and $1,000,000")
+
         # Hash password and create user
         password_hash = hash_password(request.password)
-        user_id = await db.create_user(request.username, password_hash)
+        user_id = await db.create_user(request.username, password_hash, request.starting_balance)
 
         # Set cookie
         response.set_cookie(
@@ -307,6 +312,65 @@ async def get_current_user(user_id: int = Depends(get_current_user_id)):
         "current_balance": user['current_balance'],
         "starting_balance": user['starting_balance'],
         "total_pnl": user['total_pnl']
+    }
+
+
+@app.get("/api/user/stats")
+async def get_user_stats(user_id: int = Depends(get_current_user_id)):
+    """Get detailed user statistics"""
+    user = await db.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Get all trades for this user
+    all_trades = await db.get_user_trades(user_id)
+
+    # Calculate statistics
+    total_trades = len(all_trades)
+    completed_trades = [t for t in all_trades if t.get('exit_price') is not None]
+    open_trades = [t for t in all_trades if t.get('exit_price') is None]
+
+    wins = len([t for t in completed_trades if t.get('pnl', 0) > 0])
+    losses = len([t for t in completed_trades if t.get('pnl', 0) <= 0])
+    win_rate = (wins / len(completed_trades) * 100) if completed_trades else 0
+
+    total_pnl = sum(t.get('pnl', 0) for t in completed_trades)
+    avg_pnl = (total_pnl / len(completed_trades)) if completed_trades else 0
+
+    biggest_win = max((t.get('pnl', 0) for t in completed_trades), default=0)
+    biggest_loss = min((t.get('pnl', 0) for t in completed_trades), default=0)
+
+    # Get wallet transactions
+    transactions = await db.get_user_wallet_transactions(user_id, limit=50)
+
+    # Active bots
+    active_bots = await db.get_user_active_bots(user_id)
+
+    return {
+        "user": {
+            "id": user['id'],
+            "username": user['username'],
+            "current_balance": user['current_balance'],
+            "starting_balance": user['starting_balance'],
+            "total_pnl": user['total_pnl'],
+            "created_at": user['created_at'].isoformat() if user.get('created_at') else None
+        },
+        "trading_stats": {
+            "total_trades": total_trades,
+            "completed_trades": len(completed_trades),
+            "open_trades": len(open_trades),
+            "wins": wins,
+            "losses": losses,
+            "win_rate": win_rate,
+            "total_pnl": total_pnl,
+            "avg_pnl_per_trade": avg_pnl,
+            "biggest_win": biggest_win,
+            "biggest_loss": biggest_loss
+        },
+        "active_bots": active_bots,
+        "recent_trades": completed_trades[-10:][::-1],  # Last 10 trades, most recent first
+        "open_positions": open_trades,
+        "recent_transactions": transactions
     }
 
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { DollarSign, TrendingUp, TrendingDown, Activity, Settings } from 'lucide-react';
 
 interface WalletStatus {
@@ -35,7 +35,7 @@ interface LiveBotPanelProps {
 }
 
 export function LiveBotPanel({
-  eventTicker,
+  eventTicker: _eventTicker,
   isRunning,
   wallet,
   onStart,

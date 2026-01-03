@@ -94,7 +94,11 @@ class Database:
                     away_team TEXT,
                     status TEXT DEFAULT 'active',
                     started_at TIMESTAMPTZ DEFAULT NOW(),
-                    last_tick INT DEFAULT 0
+                    last_tick INT DEFAULT 0,
+                    live_bot_active BOOLEAN DEFAULT FALSE,
+                    live_bot_bankroll FLOAT,
+                    live_bot_starting_bankroll FLOAT,
+                    live_bot_config JSONB
                 )
             """)
             
@@ -144,6 +148,7 @@ class Database:
                     exit_time TIMESTAMPTZ,
                     exit_reason TEXT,
                     pnl FLOAT,
+                    contracts INT,
                     config_snapshot JSONB
                 )
             """)
@@ -218,6 +223,32 @@ class Database:
             await conn.execute("""
                 UPDATE game_sessions SET last_tick = $2 WHERE event_ticker = $1
             """, event_ticker, tick)
+
+    async def save_live_bot_state(self, event_ticker: str, bankroll: float, starting_bankroll: float, config: Dict) -> None:
+        """Save live bot state"""
+        async with self.pool.acquire() as conn:
+            await conn.execute("""
+                UPDATE game_sessions SET
+                    live_bot_active = TRUE,
+                    live_bot_bankroll = $2,
+                    live_bot_starting_bankroll = $3,
+                    live_bot_config = $4
+                WHERE event_ticker = $1
+            """, event_ticker, bankroll, starting_bankroll, config)
+
+    async def update_live_bot_bankroll(self, event_ticker: str, bankroll: float) -> None:
+        """Update just the bankroll for a live bot"""
+        async with self.pool.acquire() as conn:
+            await conn.execute("""
+                UPDATE game_sessions SET live_bot_bankroll = $2 WHERE event_ticker = $1
+            """, event_ticker, bankroll)
+
+    async def stop_live_bot(self, event_ticker: str) -> None:
+        """Mark live bot as stopped"""
+        async with self.pool.acquire() as conn:
+            await conn.execute("""
+                UPDATE game_sessions SET live_bot_active = FALSE WHERE event_ticker = $1
+            """, event_ticker)
     
     # ========================================================================
     # TICK METHODS
@@ -319,12 +350,13 @@ class Database:
         async with self.pool.acquire() as conn:
             trade_id = await conn.fetchval("""
                 INSERT INTO bot_trades (
-                    event_ticker, side, team, entry_price, entry_tick, entry_time, config_snapshot
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    event_ticker, side, team, entry_price, entry_tick, entry_time, contracts, config_snapshot
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                 RETURNING id
             """,
                 trade['event_ticker'], trade['side'], trade.get('team'),
                 trade['entry_price'], trade['entry_tick'], trade['entry_time'],
+                trade.get('contracts', 0),
                 trade.get('config_snapshot')
             )
             return trade_id

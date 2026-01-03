@@ -49,6 +49,68 @@ class LivePaperBot:
         self.losses = 0
         self.total_pnl = 0.0
 
+    async def initialize(self):
+        """Initialize bot state from existing trades in database"""
+        # Check if we have saved bot state
+        session = await self.db.get_session(self.event_ticker)
+
+        if session and session.get('live_bot_active'):
+            # Resume from saved state
+            saved_bankroll = session.get('live_bot_bankroll')
+            saved_starting_bankroll = session.get('live_bot_starting_bankroll')
+
+            if saved_bankroll is not None:
+                self.bankroll = saved_bankroll
+            if saved_starting_bankroll is not None:
+                self.starting_bankroll = saved_starting_bankroll
+
+        # Check for existing trades
+        trades = await self.db.get_bot_trades(self.event_ticker)
+
+        if trades:
+            # Calculate stats from existing trades
+            self.total_trades = len(trades)
+            self.wins = len([t for t in trades if t.get('pnl', 0) > 0])
+            self.losses = len([t for t in trades if t.get('pnl', 0) <= 0 and t.get('exit_price')])
+            self.total_pnl = sum(t.get('pnl', 0) for t in trades if t.get('pnl'))
+
+            # Check for open position
+            open_trade = await self.db.get_open_trade(self.event_ticker)
+            if open_trade:
+                # Reconstruct position state
+                self.position = {
+                    'side': open_trade['side'],
+                    'entry_price': open_trade['entry_price'],
+                    'contracts': open_trade.get('contracts', 0),
+                    'cost': 0,  # Will recalculate from contracts and entry price
+                    'entry_tick': open_trade['entry_tick'],
+                    'entry_time': open_trade['entry_time'],
+                    'trade_id': open_trade['id'],
+                    'high': open_trade['entry_price'] if open_trade['side'] == 'long' else None,
+                    'low': open_trade['entry_price'] if open_trade['side'] == 'short' else None
+                }
+
+                # Recalculate cost from contracts
+                if self.position['side'] == 'long':
+                    self.position['cost'] = self.position['contracts'] * self.position['entry_price'] / 100
+                else:
+                    no_price = 100 - self.position['entry_price']
+                    self.position['cost'] = self.position['contracts'] * no_price / 100
+
+        # Save initial state to database
+        await self.db.save_live_bot_state(
+            self.event_ticker,
+            self.bankroll,
+            self.starting_bankroll,
+            {
+                'momentum_threshold': self.momentum_threshold,
+                'initial_stop': self.initial_stop,
+                'profit_target': self.profit_target,
+                'breakeven_trigger': self.breakeven_trigger,
+                'position_size_pct': self.position_size_pct
+            }
+        )
+
     async def on_tick(self, tick: Dict):
         """Process new tick data"""
         if not self.is_active:
@@ -124,6 +186,9 @@ class LivePaperBot:
             }
             self.bankroll -= cost
 
+            # Update bankroll in database
+            await self.db.update_live_bot_bankroll(self.event_ticker, self.bankroll)
+
             # Store in database
             trade_id = await self.db.insert_trade({
                 'event_ticker': self.event_ticker,
@@ -132,6 +197,7 @@ class LivePaperBot:
                 'entry_price': price,
                 'entry_tick': tick['tick'],
                 'entry_time': datetime.now(timezone.utc),
+                'contracts': contracts,
                 'config_snapshot': {
                     'momentum_threshold': self.momentum_threshold,
                     'initial_stop': self.initial_stop,
@@ -220,6 +286,9 @@ class LivePaperBot:
             self.wins += 1
         elif pnl < 0:
             self.losses += 1
+
+        # Update bankroll in database
+        await self.db.update_live_bot_bankroll(self.event_ticker, self.bankroll)
 
         # Update database
         await self.db.update_trade_exit(pos['trade_id'], {
@@ -315,3 +384,6 @@ class LivePaperBot:
                 'tick': 0,
                 'home_team': ''
             }, 'BOT_STOPPED')
+
+        # Mark as stopped in database
+        await self.db.stop_live_bot(self.event_ticker)

@@ -58,6 +58,24 @@ async def lifespan(app: FastAPI):
         )
         active_loggers[session['event_ticker']] = logger
         asyncio.create_task(logger.start())
+
+        # Resume live bot if it was active
+        if session.get('live_bot_active'):
+            config = session.get('live_bot_config', {})
+            bot = LivePaperBot(
+                event_ticker=session['event_ticker'],
+                db=db,
+                broadcast_fn=broadcast_update,
+                bankroll=session.get('live_bot_bankroll', 500.0),
+                momentum_threshold=config.get('momentum_threshold', 8),
+                initial_stop=config.get('initial_stop', 8),
+                profit_target=config.get('profit_target', 15),
+                breakeven_trigger=config.get('breakeven_trigger', 5),
+                position_size_pct=config.get('position_size_pct', 0.5)
+            )
+            await bot.initialize()
+            active_live_bots[session['event_ticker']] = bot
+            logger.attach_bot(bot)
     
     yield
     
@@ -461,6 +479,9 @@ async def start_live_bot(
         breakeven_trigger=breakeven_trigger,
         position_size_pct=position_size_pct
     )
+
+    # Initialize bot state from database (existing trades, open positions)
+    await bot.initialize()
 
     active_live_bots[event_ticker] = bot
     active_loggers[event_ticker].attach_bot(bot)

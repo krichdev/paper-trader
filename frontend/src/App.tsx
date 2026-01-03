@@ -270,49 +270,60 @@ function App() {
   return (
     <div className="min-h-screen bg-slate-900">
       {/* Header */}
-      <header className="bg-slate-800 border-b border-slate-700 px-4 py-3">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <h1 className="text-xl font-bold flex items-center gap-2">
-              🏈 Paper Trader
-            </h1>
-            {user && (
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-700/50 rounded-lg border border-slate-600">
-                <Wallet size={16} className="text-green-400" />
-                <div className="text-sm">
-                  <div className="font-bold">${user.current_balance.toFixed(2)}</div>
-                  <div className={`text-xs ${user.total_pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                    {user.total_pnl >= 0 ? '+' : ''}{user.total_pnl.toFixed(2)} P&L
+      <header className="bg-slate-800 border-b border-slate-700 px-2 sm:px-4 py-2 sm:py-3">
+        <div className="max-w-7xl mx-auto">
+          {/* Mobile: Stack vertically, Desktop: Single row */}
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+            {/* Top row on mobile / Left side on desktop */}
+            <div className="flex items-center justify-between sm:justify-start gap-2 sm:gap-4">
+              <h1 className="text-base sm:text-xl font-bold flex items-center gap-1 sm:gap-2">
+                🏈 <span className="hidden xs:inline">Paper Trader</span><span className="xs:hidden">PT</span>
+              </h1>
+              {user && (
+                <div className="flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 bg-slate-700/50 rounded-lg border border-slate-600">
+                  <Wallet size={14} className="text-green-400 sm:w-4 sm:h-4" />
+                  <div className="text-xs sm:text-sm">
+                    <div className="font-bold whitespace-nowrap">${user.current_balance.toFixed(2)}</div>
+                    <div className={`text-[10px] sm:text-xs whitespace-nowrap ${user.total_pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                      {user.total_pnl >= 0 ? '+' : ''}{user.total_pnl.toFixed(2)} P&L
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
-          </div>
-          <div className="flex items-center gap-4">
-            {user && (
-              <div className="text-sm text-slate-400">
-                {user.username}
-              </div>
-            )}
-            <div className={`flex items-center gap-1 text-sm ${isConnected ? 'text-green-400' : 'text-red-400'}`}>
-              {isConnected ? <Wifi size={16} /> : <WifiOff size={16} />}
-              {isConnected ? 'Live' : 'Disconnected'}
+              )}
             </div>
-            <button
-              onClick={loadGames}
-              className="p-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
-              disabled={loading}
-              title="Refresh games"
-            >
-              <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
-            </button>
-            <button
-              onClick={logout}
-              className="p-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
-              title="Logout"
-            >
-              <LogOut size={18} />
-            </button>
+
+            {/* Bottom row on mobile / Right side on desktop */}
+            <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-4">
+              <div className="flex items-center gap-2 sm:gap-4">
+                {user && (
+                  <div className="text-xs sm:text-sm text-slate-400 hidden sm:block">
+                    {user.username}
+                  </div>
+                )}
+                <div className={`flex items-center gap-1 text-xs sm:text-sm ${isConnected ? 'text-green-400' : 'text-red-400'}`}>
+                  {isConnected ? <Wifi size={14} className="sm:w-4 sm:h-4" /> : <WifiOff size={14} className="sm:w-4 sm:h-4" />}
+                  <span className="hidden sm:inline">{isConnected ? 'Live' : 'Disconnected'}</span>
+                  <span className="sm:hidden">{isConnected ? 'Live' : 'Off'}</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <button
+                  onClick={loadGames}
+                  className="p-1.5 sm:p-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
+                  disabled={loading}
+                  title="Refresh games"
+                >
+                  <RefreshCw size={16} className={`sm:w-[18px] sm:h-[18px] ${loading ? 'animate-spin' : ''}`} />
+                </button>
+                <button
+                  onClick={logout}
+                  className="p-1.5 sm:p-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
+                  title="Logout"
+                >
+                  <LogOut size={16} className="sm:w-[18px] sm:h-[18px]" />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </header>

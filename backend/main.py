@@ -206,44 +206,55 @@ class LoginRequest(BaseModel):
 @app.post("/api/auth/register")
 async def register(request: RegisterRequest, response: Response):
     """Register a new user"""
-    # Check if username already exists
-    existing_user = await db.get_user_by_username(request.username)
-    if existing_user:
-        raise HTTPException(status_code=400, detail="Username already taken")
+    try:
+        # Check if username already exists
+        existing_user = await db.get_user_by_username(request.username)
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Username already taken")
 
-    # Hash password and create user
-    password_hash = hash_password(request.password)
-    user_id = await db.create_user(request.username, password_hash)
+        # Hash password and create user
+        password_hash = hash_password(request.password)
+        user_id = await db.create_user(request.username, password_hash)
 
-    # Set cookie
-    response.set_cookie(
-        key="user_id",
-        value=str(user_id),
-        httponly=True,
-        max_age=30*24*60*60,  # 30 days
-        samesite="lax"
-    )
+        # Set cookie
+        response.set_cookie(
+            key="user_id",
+            value=str(user_id),
+            httponly=True,
+            max_age=30*24*60*60,  # 30 days
+            samesite="lax"
+        )
 
-    # Get user data
-    user = await db.get_user_by_id(user_id)
+        # Get user data
+        user = await db.get_user_by_id(user_id)
 
-    return {
-        "id": user['id'],
-        "username": user['username'],
-        "current_balance": user['current_balance'],
-        "starting_balance": user['starting_balance'],
-        "total_pnl": user['total_pnl']
-    }
+        return {
+            "id": user['id'],
+            "username": user['username'],
+            "current_balance": user['current_balance'],
+            "starting_balance": user['starting_balance'],
+            "total_pnl": user['total_pnl']
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        print(f"Registration error: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
 
 
 @app.post("/api/migrate")
 async def run_migrations():
     """Manually trigger database migrations"""
     try:
+        if not db.pool:
+            return {"status": "error", "message": "Database pool not initialized"}
         await db.create_tables()
         return {"status": "success", "message": "Tables created successfully"}
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        import traceback
+        return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
 
 
 @app.post("/api/auth/login")

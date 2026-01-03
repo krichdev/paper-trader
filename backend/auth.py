@@ -1,41 +1,30 @@
 """
 Authentication utilities for password hashing and verification
-Version: 2.0 - Fixed bcrypt 72-byte limit
+Version: 3.0 - Using bcrypt directly
 """
 
-from passlib.context import CryptContext
+import bcrypt
 from typing import Optional
 from fastapi import Cookie, HTTPException, status
 
-# Password hashing context with auto-truncation
-pwd_context = CryptContext(
-    schemes=["bcrypt"],
-    deprecated="auto",
-    bcrypt__ident="2b",  # Use bcrypt variant 2b
-    truncate_error=True  # Auto-truncate passwords longer than max length
-)
-
 
 def hash_password(password: str) -> str:
-    """Hash a password (truncates to 72 bytes for bcrypt compatibility)"""
-    # Bcrypt has a max password length of 72 bytes
-    # Encode and truncate at byte level, then decode safely
-    password_bytes = password.encode('utf-8')[:72]
-    # Decode, ignoring any incomplete multi-byte sequences at the end
-    truncated_password = password_bytes.decode('utf-8', errors='ignore')
-    print(f"[DEBUG] Original password length: {len(password)} chars, {len(password.encode('utf-8'))} bytes")
-    print(f"[DEBUG] Truncated password length: {len(truncated_password)} chars, {len(truncated_password.encode('utf-8'))} bytes")
-    return pwd_context.hash(truncated_password)
+    """Hash a password using bcrypt"""
+    # Convert password to bytes
+    password_bytes = password.encode('utf-8')
+    # Generate salt and hash
+    hashed = bcrypt.hashpw(password_bytes, bcrypt.gensalt())
+    # Return as string
+    return hashed.decode('utf-8')
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify a password against a hash (truncates to 72 bytes for bcrypt compatibility)"""
-    # Bcrypt has a max password length of 72 bytes
-    # Encode and truncate at byte level, then decode safely
-    password_bytes = plain_password.encode('utf-8')[:72]
-    # Decode, ignoring any incomplete multi-byte sequences at the end
-    truncated_password = password_bytes.decode('utf-8', errors='ignore')
-    return pwd_context.verify(truncated_password, hashed_password)
+    """Verify a password against a bcrypt hash"""
+    # Convert both to bytes
+    password_bytes = plain_password.encode('utf-8')
+    hashed_bytes = hashed_password.encode('utf-8')
+    # Verify
+    return bcrypt.checkpw(password_bytes, hashed_bytes)
 
 
 async def get_current_user_id(user_id: Optional[str] = Cookie(None)) -> int:

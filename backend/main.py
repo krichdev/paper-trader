@@ -168,41 +168,26 @@ async def list_available_games():
     today = datetime.now(timezone.utc).strftime('%Y-%m-%dT00:00:00Z')
     
     async with httpx.AsyncClient() as client:
-        # Fetch NCAAFB
-        try:
-            resp = await client.get(
-                f"{KALSHI_API_BASE}/milestones",
-                params={
-                    'limit': 100,
-                    'minimum_start_date': today,
-                    'category': 'Sports',
-                    'competition': 'NCAAFB'
-                },
-                timeout=10
-            )
-            if resp.status_code == 200:
-                milestones = resp.json().get('milestones', [])
-                games.extend(parse_milestones(milestones, 'NCAAFB'))
-        except Exception as e:
-            print(f"Error fetching NCAAFB: {e}")
-        
-        # Fetch NFL
-        try:
-            resp = await client.get(
-                f"{KALSHI_API_BASE}/milestones",
-                params={
-                    'limit': 100,
-                    'minimum_start_date': today,
-                    'category': 'Sports',
-                    'competition': 'NFL'
-                },
-                timeout=10
-            )
-            if resp.status_code == 200:
-                milestones = resp.json().get('milestones', [])
-                games.extend(parse_milestones(milestones, 'NFL'))
-        except Exception as e:
-            print(f"Error fetching NFL: {e}")
+        # Fetch games from multiple leagues
+        leagues = ['NCAAFB', 'NFL', 'NCAABB', 'NBA']
+
+        for league in leagues:
+            try:
+                resp = await client.get(
+                    f"{KALSHI_API_BASE}/milestones",
+                    params={
+                        'limit': 100,
+                        'minimum_start_date': today,
+                        'category': 'Sports',
+                        'competition': league
+                    },
+                    timeout=10
+                )
+                if resp.status_code == 200:
+                    milestones = resp.json().get('milestones', [])
+                    games.extend(parse_milestones(milestones, league))
+            except Exception as e:
+                print(f"Error fetching {league}: {e}")
     
     # Sort by start date
     games.sort(key=lambda x: x.get('start_date') or '')

@@ -25,17 +25,20 @@ class GameLogger:
         self.db = db
         self.broadcast_fn = broadcast_fn
         self.interval = interval
-        
+
         self.tick_count = start_tick
         self.is_running = False
         self.status = "initialized"
-        
+
+        # Detect sport type
+        self.sport_type = self._detect_sport_type()
+
         # Team info
         self.home_team = ""
         self.away_team = ""
         self.home_team_id = ""
         self.away_team_id = ""
-        
+
         # Last known state
         self.last_home_price = 0
         self.last_away_price = 0
@@ -44,9 +47,19 @@ class GameLogger:
         self.last_quarter = 0
         self.last_clock = ""
         self.last_play = ""
-        
+
         # Attached bot
         self.bot = None
+
+    def _detect_sport_type(self) -> str:
+        """Detect sport type from event ticker"""
+        ticker = self.event_ticker.upper()
+        if 'NCAAF' in ticker or 'NFL' in ticker:
+            return 'football'
+        elif 'NCAAB' in ticker or 'NBA' in ticker:
+            return 'basketball'
+        else:
+            return 'football'  # Default to football for backward compatibility
     
     def attach_bot(self, bot):
         """Attach a dry-run bot to receive tick updates"""
@@ -185,16 +198,18 @@ class GameLogger:
         """Fetch live game state"""
         async with httpx.AsyncClient() as client:
             try:
+                # Use appropriate endpoint based on sport type
+                sport_endpoint = f"{self.sport_type}_game"
                 resp = await client.get(
-                    f"{KALSHI_API_BASE}/live_data/football_game/milestone/{self.milestone_id}",
+                    f"{KALSHI_API_BASE}/live_data/{sport_endpoint}/milestone/{self.milestone_id}",
                     timeout=10
                 )
-                
+
                 if resp.status_code == 200:
                     return resp.json().get('live_data', {}).get('details', {})
             except Exception as e:
                 print(f"Error fetching live data: {e}")
-        
+
         return {}
     
     def _build_tick(self, timestamp: datetime, market_data: dict, live_data: dict) -> dict:
@@ -202,14 +217,15 @@ class GameLogger:
         markets = market_data.get('markets', [])
         home = markets[0] if len(markets) > 0 else {}
         away = markets[1] if len(markets) > 1 else {}
-        
+
         situation = live_data.get('situation', {})
         last_play_obj = live_data.get('last_play', {})
-        
+
         home_score = live_data.get('home_points', 0)
         away_score = live_data.get('away_points', 0)
-        
-        return {
+
+        # Build base tick (works for all sports)
+        tick_data = {
             'event_ticker': self.event_ticker,
             'tick': self.tick_count,
             'timestamp': timestamp,
@@ -228,14 +244,30 @@ class GameLogger:
             'home_score': home_score,
             'away_score': away_score,
             'score_diff': home_score - away_score,
-            'possession_team_id': situation.get('possession_team_id', ''),
-            'down': situation.get('down', 0),
-            'yards_to_go': situation.get('yfd', 0),
-            'yardline': situation.get('yardline', 0),
-            'goal_to_go': situation.get('goal_to_go', False),
             'status': live_data.get('status', 'unknown'),
             'last_play': (last_play_obj.get('description', '') if last_play_obj else '')[:200]
         }
+
+        # Add football-specific fields (will be 0/empty for basketball)
+        if self.sport_type == 'football':
+            tick_data.update({
+                'possession_team_id': situation.get('possession_team_id', ''),
+                'down': situation.get('down', 0),
+                'yards_to_go': situation.get('yfd', 0),
+                'yardline': situation.get('yardline', 0),
+                'goal_to_go': situation.get('goal_to_go', False)
+            })
+        else:
+            # Basketball or other sports - use defaults
+            tick_data.update({
+                'possession_team_id': '',
+                'down': 0,
+                'yards_to_go': 0,
+                'yardline': 0,
+                'goal_to_go': False
+            })
+
+        return tick_data
     
     def _update_state(self, tick: dict):
         """Update last known state"""

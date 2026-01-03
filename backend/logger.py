@@ -18,7 +18,7 @@ class GameLogger:
         db: Any,
         broadcast_fn: Optional[Callable] = None,
         start_tick: int = 0,
-        interval: int = 15
+        interval: int = 1
     ):
         self.event_ticker = event_ticker
         self.milestone_id = milestone_id

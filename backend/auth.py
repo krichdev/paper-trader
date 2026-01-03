@@ -23,6 +23,8 @@ def hash_password(password: str) -> str:
     password_bytes = password.encode('utf-8')[:72]
     # Decode, ignoring any incomplete multi-byte sequences at the end
     truncated_password = password_bytes.decode('utf-8', errors='ignore')
+    print(f"[DEBUG] Original password length: {len(password)} chars, {len(password.encode('utf-8'))} bytes")
+    print(f"[DEBUG] Truncated password length: {len(truncated_password)} chars, {len(truncated_password.encode('utf-8'))} bytes")
     return pwd_context.hash(truncated_password)
 
 

@@ -19,11 +19,13 @@ class LivePaperBot:
         initial_stop: int = 8,
         profit_target: int = 15,
         breakeven_trigger: int = 5,
-        position_size_pct: float = 0.5
+        position_size_pct: float = 0.5,
+        user_id: Optional[int] = None
     ):
         self.event_ticker = event_ticker
         self.db = db
         self.broadcast_fn = broadcast_fn
+        self.user_id = user_id
 
         # Wallet
         self.bankroll = bankroll
@@ -198,6 +200,7 @@ class LivePaperBot:
                 'entry_tick': tick['tick'],
                 'entry_time': datetime.now(timezone.utc),
                 'contracts': contracts,
+                'user_id': self.user_id,
                 'config_snapshot': {
                     'momentum_threshold': self.momentum_threshold,
                     'initial_stop': self.initial_stop,
@@ -289,6 +292,21 @@ class LivePaperBot:
 
         # Update bankroll in database
         await self.db.update_live_bot_bankroll(self.event_ticker, self.bankroll)
+
+        # Update user wallet (return funds + P&L)
+        if self.user_id:
+            user = await self.db.get_user_by_id(self.user_id)
+            if user:
+                new_balance = user['current_balance'] + proceeds
+                await self.db.update_user_balance(self.user_id, new_balance, pnl)
+                await self.db.add_wallet_transaction(
+                    user_id=self.user_id,
+                    amount=proceeds,
+                    tx_type='trade_exit',
+                    balance_after=new_balance,
+                    event_ticker=self.event_ticker,
+                    trade_id=pos['trade_id']
+                )
 
         # Update database
         await self.db.update_trade_exit(pos['trade_id'], {
@@ -384,6 +402,20 @@ class LivePaperBot:
                 'tick': 0,
                 'home_team': ''
             }, 'BOT_STOPPED')
+
+        # Return remaining bankroll to user wallet
+        if self.user_id and self.bankroll > 0:
+            user = await self.db.get_user_by_id(self.user_id)
+            if user:
+                new_balance = user['current_balance'] + self.bankroll
+                await self.db.update_user_balance(self.user_id, new_balance)
+                await self.db.add_wallet_transaction(
+                    user_id=self.user_id,
+                    amount=self.bankroll,
+                    tx_type='bot_stop',
+                    balance_after=new_balance,
+                    event_ticker=self.event_ticker
+                )
 
         # Mark as stopped in database
         await self.db.stop_live_bot(self.event_ticker)

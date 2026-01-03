@@ -478,13 +478,14 @@ class Database:
 
             trade_id = await conn.fetchval("""
                 INSERT INTO bot_trades (
-                    event_ticker, side, team, entry_price, entry_tick, entry_time, contracts, config_snapshot
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                    event_ticker, side, team, entry_price, entry_tick, entry_time, contracts, user_id, config_snapshot
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                 RETURNING id
             """,
                 trade['event_ticker'], trade['side'], trade.get('team'),
                 trade['entry_price'], trade['entry_tick'], trade['entry_time'],
                 trade.get('contracts', 0),
+                trade.get('user_id'),
                 config_snapshot
             )
             return trade_id

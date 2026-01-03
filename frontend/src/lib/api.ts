@@ -55,7 +55,9 @@ export async function updateBotConfig(eventTicker: string, config: any) {
 }
 
 export async function getBotTrades(eventTicker: string) {
-  const res = await fetch(`${API_BASE}/bot/${eventTicker}/trades`);
+  const res = await fetch(`${API_BASE}/bot/${eventTicker}/trades`, {
+    credentials: 'include'
+  });
   return res.json();
 }
 
@@ -86,20 +88,36 @@ export async function startLiveBot(eventTicker: string, config: {
   if (config.position_size_pct !== undefined) params.set('position_size_pct', config.position_size_pct.toString());
 
   const res = await fetch(`${API_BASE}/livebot/${eventTicker}/start?${params}`, {
-    method: 'POST'
+    method: 'POST',
+    credentials: 'include'
   });
+
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.detail || 'Failed to start live bot');
+  }
+
   return res.json();
 }
 
 export async function stopLiveBot(eventTicker: string) {
   const res = await fetch(`${API_BASE}/livebot/${eventTicker}/stop`, {
-    method: 'POST'
+    method: 'POST',
+    credentials: 'include'
   });
+
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.detail || 'Failed to stop live bot');
+  }
+
   return res.json();
 }
 
 export async function getLiveBotWallet(eventTicker: string) {
-  const res = await fetch(`${API_BASE}/livebot/${eventTicker}/wallet`);
+  const res = await fetch(`${API_BASE}/livebot/${eventTicker}/wallet`, {
+    credentials: 'include'
+  });
   return res.json();
 }
 
@@ -120,7 +138,8 @@ export async function updateLiveBotConfig(eventTicker: string, config: {
   if (config.position_size_pct !== undefined) params.set('position_size_pct', config.position_size_pct.toString());
 
   const res = await fetch(`${API_BASE}/livebot/${eventTicker}/config?${params}`, {
-    method: 'PUT'
+    method: 'PUT',
+    credentials: 'include'
   });
   return res.json();
 }

@@ -73,7 +73,8 @@ async def lifespan(app: FastAPI):
                 initial_stop=config.get('initial_stop', 8),
                 profit_target=config.get('profit_target', 15),
                 breakeven_trigger=config.get('breakeven_trigger', 5),
-                position_size_pct=config.get('position_size_pct', 0.5)
+                position_size_pct=config.get('position_size_pct', 0.5),
+                user_id=session.get('user_id')
             )
             await bot.initialize()
             active_live_bots[session['event_ticker']] = bot
@@ -558,6 +559,7 @@ async def update_bot_config(event_ticker: str, config: BotConfig):
 @app.post("/api/livebot/{event_ticker}/start")
 async def start_live_bot(
     event_ticker: str,
+    user_id: int = Depends(get_current_user_id),
     bankroll: float = 500.0,
     momentum_threshold: int = 8,
     initial_stop: int = 8,
@@ -573,6 +575,28 @@ async def start_live_bot(
     if event_ticker in active_live_bots:
         return {"status": "already_running"}
 
+    # Check user balance
+    user = await db.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if user['current_balance'] < bankroll:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Insufficient funds. You have ${user['current_balance']:.2f}, but need ${bankroll:.2f}"
+        )
+
+    # Deduct allocation from user wallet
+    new_balance = user['current_balance'] - bankroll
+    await db.update_user_balance(user_id, new_balance)
+    await db.add_wallet_transaction(
+        user_id=user_id,
+        amount=-bankroll,
+        tx_type='bot_start',
+        balance_after=new_balance,
+        event_ticker=event_ticker
+    )
+
     bot = LivePaperBot(
         event_ticker=event_ticker,
         db=db,
@@ -582,7 +606,8 @@ async def start_live_bot(
         initial_stop=initial_stop,
         profit_target=profit_target,
         breakeven_trigger=breakeven_trigger,
-        position_size_pct=position_size_pct
+        position_size_pct=position_size_pct,
+        user_id=user_id
     )
 
     # Initialize bot state from database (existing trades, open positions)
@@ -597,7 +622,7 @@ async def start_live_bot(
         "event_ticker": event_ticker
     })
 
-    return {"status": "started", "wallet": bot.get_wallet_status()}
+    return {"status": "started", "wallet": bot.get_wallet_status(), "user_balance": new_balance}
 
 
 @app.post("/api/livebot/{event_ticker}/stop")

@@ -39,7 +39,7 @@ interface Game {
 }
 
 function App() {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const [availableGames, setAvailableGames] = useState<Game[]>([]);
   const [activeGames, setActiveGames] = useState<Game[]>([]);
   const [selectedGame, setSelectedGame] = useState<string | null>(null);
@@ -105,6 +105,8 @@ function App() {
       if (ticker) {
         setLiveBotRunning(prev => ({ ...prev, [ticker]: false }));
       }
+      // Refresh wallet balance when bot stops (remaining bankroll returned)
+      refreshUser();
     } else if (lastMessage.type === 'live_bot_wallet') {
       const ticker = lastMessage.event_ticker;
       if (ticker && lastMessage.data) {
@@ -115,6 +117,10 @@ function App() {
       console.log('[WebSocket] Live bot trade event:', lastMessage.type, ticker);
       if (ticker) {
         loadLiveBotTrades(ticker);
+      }
+      // Refresh wallet balance when trade exits (funds + P&L returned)
+      if (lastMessage.type === 'live_bot_exit') {
+        refreshUser();
       }
     } else if (lastMessage.type === 'init') {
       if (lastMessage.data?.active_games) {
@@ -234,8 +240,10 @@ function App() {
       await startLiveBot(eventTicker, config);
       setLiveBotRunning(prev => ({ ...prev, [eventTicker]: true }));
       loadLiveBotTrades(eventTicker);
-    } catch (e) {
+      await refreshUser(); // Refresh wallet balance after starting bot
+    } catch (e: any) {
       console.error('Failed to start live bot:', e);
+      alert(e.message || 'Failed to start live bot');
     }
   };
 
@@ -243,6 +251,7 @@ function App() {
     try {
       await stopLiveBot(eventTicker);
       setLiveBotRunning(prev => ({ ...prev, [eventTicker]: false }));
+      await refreshUser(); // Refresh wallet balance after stopping bot
     } catch (e) {
       console.error('Failed to stop live bot:', e);
     }

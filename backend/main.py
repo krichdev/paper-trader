@@ -8,9 +8,10 @@ Features:
 - Dry-run bot with adjustable parameters
 """
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, BackgroundTasks
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, BackgroundTasks, Response, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+from pydantic import BaseModel
 import asyncio
 import httpx
 from datetime import datetime, timezone
@@ -22,6 +23,7 @@ from database import Database, GameTick, GameSession, BotTrade
 from logger import GameLogger
 from bot import DryRunBot, BotConfig
 from live_bot import LivePaperBot
+from auth import hash_password, verify_password, get_current_user_id
 
 # ============================================================================
 # CONFIG
@@ -181,6 +183,109 @@ async def get_current_state() -> dict:
         state["live_bot_wallets"][ticker] = live_bot.get_wallet_status()
 
     return state
+
+
+# ============================================================================
+# AUTH MODELS
+# ============================================================================
+
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+# ============================================================================
+# AUTH ROUTES
+# ============================================================================
+
+@app.post("/api/auth/register")
+async def register(request: RegisterRequest, response: Response):
+    """Register a new user"""
+    # Check if username already exists
+    existing_user = await db.get_user_by_username(request.username)
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Username already taken")
+
+    # Hash password and create user
+    password_hash = hash_password(request.password)
+    user_id = await db.create_user(request.username, password_hash)
+
+    # Set cookie
+    response.set_cookie(
+        key="user_id",
+        value=str(user_id),
+        httponly=True,
+        max_age=30*24*60*60,  # 30 days
+        samesite="lax"
+    )
+
+    # Get user data
+    user = await db.get_user_by_id(user_id)
+
+    return {
+        "id": user['id'],
+        "username": user['username'],
+        "current_balance": user['current_balance'],
+        "starting_balance": user['starting_balance'],
+        "total_pnl": user['total_pnl']
+    }
+
+
+@app.post("/api/auth/login")
+async def login(request: LoginRequest, response: Response):
+    """Login user"""
+    # Get user
+    user = await db.get_user_by_username(request.username)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    # Verify password
+    if not verify_password(request.password, user['password_hash']):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    # Set cookie
+    response.set_cookie(
+        key="user_id",
+        value=str(user['id']),
+        httponly=True,
+        max_age=30*24*60*60,  # 30 days
+        samesite="lax"
+    )
+
+    return {
+        "id": user['id'],
+        "username": user['username'],
+        "current_balance": user['current_balance'],
+        "starting_balance": user['starting_balance'],
+        "total_pnl": user['total_pnl']
+    }
+
+
+@app.post("/api/auth/logout")
+async def logout(response: Response):
+    """Logout user"""
+    response.delete_cookie(key="user_id")
+    return {"status": "logged out"}
+
+
+@app.get("/api/auth/me")
+async def get_current_user(user_id: int = Depends(get_current_user_id)):
+    """Get current user info"""
+    user = await db.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return {
+        "id": user['id'],
+        "username": user['username'],
+        "current_balance": user['current_balance'],
+        "starting_balance": user['starting_balance'],
+        "total_pnl": user['total_pnl']
+    }
 
 
 # ============================================================================

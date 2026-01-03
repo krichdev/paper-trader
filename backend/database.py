@@ -87,6 +87,33 @@ class Database:
     async def create_tables(self):
         """Create tables if they don't exist"""
         async with self.pool.acquire() as conn:
+            # Users table
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    id SERIAL PRIMARY KEY,
+                    username TEXT UNIQUE NOT NULL,
+                    password_hash TEXT NOT NULL,
+                    starting_balance FLOAT DEFAULT 10000,
+                    current_balance FLOAT DEFAULT 10000,
+                    total_pnl FLOAT DEFAULT 0,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                )
+            """)
+
+            # Wallet transactions table
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS wallet_transactions (
+                    id SERIAL PRIMARY KEY,
+                    user_id INT REFERENCES users(id),
+                    amount FLOAT NOT NULL,
+                    type TEXT NOT NULL,
+                    event_ticker TEXT,
+                    trade_id INT,
+                    balance_after FLOAT NOT NULL,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                )
+            """)
+
             await conn.execute("""
                 CREATE TABLE IF NOT EXISTS game_sessions (
                     event_ticker TEXT PRIMARY KEY,
@@ -99,7 +126,7 @@ class Database:
                 )
             """)
 
-            # Add new columns for live bot persistence (migration)
+            # Add new columns for live bot persistence and user accounts (migration)
             await conn.execute("""
                 DO $$
                 BEGIN
@@ -118,6 +145,10 @@ class Database:
                     IF NOT EXISTS (SELECT 1 FROM information_schema.columns
                                    WHERE table_name='game_sessions' AND column_name='live_bot_config') THEN
                         ALTER TABLE game_sessions ADD COLUMN live_bot_config JSONB;
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                                   WHERE table_name='game_sessions' AND column_name='user_id') THEN
+                        ALTER TABLE game_sessions ADD COLUMN user_id INT REFERENCES users(id);
                     END IF;
                 END $$;
             """)
@@ -172,13 +203,17 @@ class Database:
                 )
             """)
 
-            # Add contracts column (migration)
+            # Add contracts and user_id columns (migration)
             await conn.execute("""
                 DO $$
                 BEGIN
                     IF NOT EXISTS (SELECT 1 FROM information_schema.columns
                                    WHERE table_name='bot_trades' AND column_name='contracts') THEN
                         ALTER TABLE bot_trades ADD COLUMN contracts INT;
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                                   WHERE table_name='bot_trades' AND column_name='user_id') THEN
+                        ALTER TABLE bot_trades ADD COLUMN user_id INT REFERENCES users(id);
                     END IF;
                 END $$;
             """)
@@ -193,7 +228,66 @@ class Database:
             await conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_trades_event ON bot_trades(event_ticker)
             """)
-    
+
+    # ========================================================================
+    # USER METHODS
+    # ========================================================================
+
+    async def create_user(self, username: str, password_hash: str) -> int:
+        """Create a new user, return user ID"""
+        async with self.pool.acquire() as conn:
+            user_id = await conn.fetchval("""
+                INSERT INTO users (username, password_hash)
+                VALUES ($1, $2)
+                RETURNING id
+            """, username, password_hash)
+            return user_id
+
+    async def get_user_by_username(self, username: str) -> Optional[Dict]:
+        """Get user by username"""
+        async with self.pool.acquire() as conn:
+            row = await conn.fetchrow("""
+                SELECT * FROM users WHERE username = $1
+            """, username)
+            return dict(row) if row else None
+
+    async def get_user_by_id(self, user_id: int) -> Optional[Dict]:
+        """Get user by ID"""
+        async with self.pool.acquire() as conn:
+            row = await conn.fetchrow("""
+                SELECT * FROM users WHERE id = $1
+            """, user_id)
+            return dict(row) if row else None
+
+    async def update_user_balance(self, user_id: int, new_balance: float, pnl_change: float = 0) -> None:
+        """Update user's balance and total P&L"""
+        async with self.pool.acquire() as conn:
+            await conn.execute("""
+                UPDATE users SET
+                    current_balance = $2,
+                    total_pnl = total_pnl + $3
+                WHERE id = $1
+            """, user_id, new_balance, pnl_change)
+
+    async def add_wallet_transaction(self, user_id: int, amount: float, tx_type: str, balance_after: float, event_ticker: str = None, trade_id: int = None) -> None:
+        """Record a wallet transaction"""
+        async with self.pool.acquire() as conn:
+            await conn.execute("""
+                INSERT INTO wallet_transactions (user_id, amount, type, event_ticker, trade_id, balance_after)
+                VALUES ($1, $2, $3, $4, $5, $6)
+            """, user_id, amount, tx_type, event_ticker, trade_id, balance_after)
+
+    async def get_user_wallet_transactions(self, user_id: int, limit: int = 50) -> List[Dict]:
+        """Get user's wallet transaction history"""
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT * FROM wallet_transactions
+                WHERE user_id = $1
+                ORDER BY created_at DESC
+                LIMIT $2
+            """, user_id, limit)
+            return [dict(row) for row in rows]
+
     # ========================================================================
     # SESSION METHODS
     # ========================================================================

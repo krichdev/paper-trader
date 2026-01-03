@@ -290,11 +290,8 @@ class LivePaperBot:
 
     def update_config(self, config: Dict):
         """Update strategy configuration"""
-        if 'bankroll' in config:
-            # Adjust bankroll but preserve P&L
-            diff = config['bankroll'] - self.bankroll
-            self.bankroll = config['bankroll']
-            self.starting_bankroll += diff
+        # Note: Bankroll cannot be updated after bot starts
+        # starting_bankroll must remain fixed for accurate P&L tracking
 
         if 'momentum_threshold' in config:
             self.momentum_threshold = config['momentum_threshold']

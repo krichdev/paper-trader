@@ -224,6 +224,18 @@ class GameLogger:
         home_score = live_data.get('home_points', 0)
         away_score = live_data.get('away_points', 0)
 
+        # Map sport-specific fields to common format
+        if self.sport_type == 'basketball':
+            # Basketball uses different field names
+            quarter = live_data.get('period', 0)
+            clock = live_data.get('period_remaining_time', '')
+            possession = live_data.get('possession', '')  # "home" or "away" string
+        else:
+            # Football uses standard field names
+            quarter = live_data.get('quarter', 0)
+            clock = live_data.get('clock', '')
+            possession = situation.get('possession_team_id', '')
+
         # Build base tick (works for all sports)
         tick_data = {
             'event_ticker': self.event_ticker,
@@ -239,8 +251,8 @@ class GameLogger:
             'away_ask': away.get('yes_ask', 0),
             'home_volume': home.get('volume', 0),
             'away_volume': away.get('volume', 0),
-            'quarter': live_data.get('quarter', 0),
-            'clock': live_data.get('clock', ''),
+            'quarter': quarter,
+            'clock': clock,
             'home_score': home_score,
             'away_score': away_score,
             'score_diff': home_score - away_score,
@@ -248,19 +260,19 @@ class GameLogger:
             'last_play': (last_play_obj.get('description', '') if last_play_obj else '')[:200]
         }
 
-        # Add football-specific fields (will be 0/empty for basketball)
+        # Add sport-specific fields
         if self.sport_type == 'football':
             tick_data.update({
-                'possession_team_id': situation.get('possession_team_id', ''),
+                'possession_team_id': possession,
                 'down': situation.get('down', 0),
                 'yards_to_go': situation.get('yfd', 0),
                 'yardline': situation.get('yardline', 0),
                 'goal_to_go': situation.get('goal_to_go', False)
             })
         else:
-            # Basketball or other sports - use defaults
+            # Basketball - simpler possession, no down/distance
             tick_data.update({
-                'possession_team_id': '',
+                'possession_team_id': possession,  # "home" or "away" for basketball
                 'down': 0,
                 'yards_to_go': 0,
                 'yardline': 0,

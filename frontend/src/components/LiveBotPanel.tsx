@@ -101,16 +101,19 @@ export function LiveBotPanel({
         <div className="mb-4 p-4 bg-slate-700/50 rounded-lg border border-slate-600">
           <h4 className="font-bold mb-3 text-sm">Bot Configuration</h4>
           <div className="space-y-2 text-sm">
-            <div>
-              <label className="block text-slate-400 mb-1">Bankroll ($)</label>
-              <input
-                type="number"
-                value={config.bankroll}
-                onChange={(e) => setConfig({ ...config, bankroll: parseFloat(e.target.value) })}
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded"
-                step="50"
-              />
-            </div>
+            {!isRunning && (
+              <div>
+                <label className="block text-slate-400 mb-1">Bankroll ($)</label>
+                <input
+                  type="number"
+                  value={config.bankroll}
+                  onChange={(e) => setConfig({ ...config, bankroll: parseFloat(e.target.value) })}
+                  className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded"
+                  step="50"
+                />
+                <p className="text-xs text-slate-500 mt-1">Cannot be changed after bot starts</p>
+              </div>
+            )}
             <div>
               <label className="block text-slate-400 mb-1">Momentum Threshold (¢)</label>
               <input

@@ -21,6 +21,7 @@ import os
 from database import Database, GameTick, GameSession, BotTrade
 from logger import GameLogger
 from bot import DryRunBot, BotConfig
+from live_bot import LivePaperBot
 
 # ============================================================================
 # CONFIG
@@ -36,6 +37,7 @@ KALSHI_API_BASE = "https://api.elections.kalshi.com/trade-api/v2"
 db = Database(DATABASE_URL)
 active_loggers: Dict[str, GameLogger] = {}
 active_bots: Dict[str, DryRunBot] = {}
+active_live_bots: Dict[str, LivePaperBot] = {}
 websocket_clients: List[WebSocket] = []
 
 
@@ -138,7 +140,9 @@ async def get_current_state() -> dict:
     state = {
         "active_games": [],
         "recent_ticks": {},
-        "active_bots": list(active_bots.keys())
+        "active_bots": list(active_bots.keys()),
+        "active_live_bots": list(active_live_bots.keys()),
+        "live_bot_wallets": {}
     }
 
     for ticker, logger in active_loggers.items():
@@ -153,6 +157,10 @@ async def get_current_state() -> dict:
         # Get last 5 ticks
         ticks = await db.get_recent_ticks(ticker, limit=5)
         state["recent_ticks"][ticker] = ticks
+
+    # Add live bot wallet info
+    for ticker, live_bot in active_live_bots.items():
+        state["live_bot_wallets"][ticker] = live_bot.get_wallet_status()
 
     return state
 
@@ -418,6 +426,120 @@ async def update_bot_config(event_ticker: str, config: BotConfig):
     active_bots[event_ticker].update_config(config)
     
     return {"status": "updated", "config": config.dict()}
+
+
+# ============================================================================
+# LIVE BOT ROUTES
+# ============================================================================
+
+@app.post("/api/livebot/{event_ticker}/start")
+async def start_live_bot(
+    event_ticker: str,
+    bankroll: float = 500.0,
+    momentum_threshold: int = 8,
+    initial_stop: int = 8,
+    profit_target: int = 15,
+    breakeven_trigger: int = 5,
+    position_size_pct: float = 0.5
+):
+    """Start live paper trading bot"""
+
+    if event_ticker not in active_loggers:
+        raise HTTPException(status_code=400, detail="Game must be logging first")
+
+    if event_ticker in active_live_bots:
+        return {"status": "already_running"}
+
+    bot = LivePaperBot(
+        event_ticker=event_ticker,
+        db=db,
+        broadcast_fn=broadcast_update,
+        bankroll=bankroll,
+        momentum_threshold=momentum_threshold,
+        initial_stop=initial_stop,
+        profit_target=profit_target,
+        breakeven_trigger=breakeven_trigger,
+        position_size_pct=position_size_pct
+    )
+
+    active_live_bots[event_ticker] = bot
+    active_loggers[event_ticker].attach_bot(bot)
+
+    # Broadcast bot started
+    await broadcast_update({
+        "type": "live_bot_started",
+        "event_ticker": event_ticker
+    })
+
+    return {"status": "started", "wallet": bot.get_wallet_status()}
+
+
+@app.post("/api/livebot/{event_ticker}/stop")
+async def stop_live_bot(event_ticker: str):
+    """Stop live paper trading bot"""
+
+    if event_ticker not in active_live_bots:
+        raise HTTPException(status_code=404, detail="Live bot not running")
+
+    bot = active_live_bots[event_ticker]
+    await bot.stop()
+
+    if event_ticker in active_loggers:
+        active_loggers[event_ticker].detach_bot()
+
+    del active_live_bots[event_ticker]
+
+    # Broadcast bot stopped
+    await broadcast_update({
+        "type": "live_bot_stopped",
+        "event_ticker": event_ticker
+    })
+
+    return {"status": "stopped"}
+
+
+@app.get("/api/livebot/{event_ticker}/wallet")
+async def get_live_bot_wallet(event_ticker: str):
+    """Get live bot wallet status"""
+
+    if event_ticker not in active_live_bots:
+        raise HTTPException(status_code=404, detail="Live bot not running")
+
+    return active_live_bots[event_ticker].get_wallet_status()
+
+
+@app.put("/api/livebot/{event_ticker}/config")
+async def update_live_bot_config(
+    event_ticker: str,
+    bankroll: Optional[float] = None,
+    momentum_threshold: Optional[int] = None,
+    initial_stop: Optional[int] = None,
+    profit_target: Optional[int] = None,
+    breakeven_trigger: Optional[int] = None,
+    position_size_pct: Optional[float] = None
+):
+    """Update live bot configuration"""
+
+    if event_ticker not in active_live_bots:
+        raise HTTPException(status_code=404, detail="Live bot not running")
+
+    config = {}
+    if bankroll is not None:
+        config['bankroll'] = bankroll
+    if momentum_threshold is not None:
+        config['momentum_threshold'] = momentum_threshold
+    if initial_stop is not None:
+        config['initial_stop'] = initial_stop
+    if profit_target is not None:
+        config['profit_target'] = profit_target
+    if breakeven_trigger is not None:
+        config['breakeven_trigger'] = breakeven_trigger
+    if position_size_pct is not None:
+        config['position_size_pct'] = position_size_pct
+
+    active_live_bots[event_ticker].update_config(config)
+
+    return {"status": "updated", "wallet": active_live_bots[event_ticker].get_wallet_status()}
 
 
 # ============================================================================

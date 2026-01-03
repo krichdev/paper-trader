@@ -67,3 +67,60 @@ export async function getSessionHistory() {
 export function getExportUrl(eventTicker: string) {
   return `${API_BASE}/games/${eventTicker}/export`;
 }
+
+// Live Bot API
+export async function startLiveBot(eventTicker: string, config: {
+  bankroll?: number;
+  momentum_threshold?: number;
+  initial_stop?: number;
+  profit_target?: number;
+  breakeven_trigger?: number;
+  position_size_pct?: number;
+}) {
+  const params = new URLSearchParams();
+  if (config.bankroll !== undefined) params.set('bankroll', config.bankroll.toString());
+  if (config.momentum_threshold !== undefined) params.set('momentum_threshold', config.momentum_threshold.toString());
+  if (config.initial_stop !== undefined) params.set('initial_stop', config.initial_stop.toString());
+  if (config.profit_target !== undefined) params.set('profit_target', config.profit_target.toString());
+  if (config.breakeven_trigger !== undefined) params.set('breakeven_trigger', config.breakeven_trigger.toString());
+  if (config.position_size_pct !== undefined) params.set('position_size_pct', config.position_size_pct.toString());
+
+  const res = await fetch(`${API_BASE}/livebot/${eventTicker}/start?${params}`, {
+    method: 'POST'
+  });
+  return res.json();
+}
+
+export async function stopLiveBot(eventTicker: string) {
+  const res = await fetch(`${API_BASE}/livebot/${eventTicker}/stop`, {
+    method: 'POST'
+  });
+  return res.json();
+}
+
+export async function getLiveBotWallet(eventTicker: string) {
+  const res = await fetch(`${API_BASE}/livebot/${eventTicker}/wallet`);
+  return res.json();
+}
+
+export async function updateLiveBotConfig(eventTicker: string, config: {
+  bankroll?: number;
+  momentum_threshold?: number;
+  initial_stop?: number;
+  profit_target?: number;
+  breakeven_trigger?: number;
+  position_size_pct?: number;
+}) {
+  const params = new URLSearchParams();
+  if (config.bankroll !== undefined) params.set('bankroll', config.bankroll.toString());
+  if (config.momentum_threshold !== undefined) params.set('momentum_threshold', config.momentum_threshold.toString());
+  if (config.initial_stop !== undefined) params.set('initial_stop', config.initial_stop.toString());
+  if (config.profit_target !== undefined) params.set('profit_target', config.profit_target.toString());
+  if (config.breakeven_trigger !== undefined) params.set('breakeven_trigger', config.breakeven_trigger.toString());
+  if (config.position_size_pct !== undefined) params.set('position_size_pct', config.position_size_pct.toString());
+
+  const res = await fetch(`${API_BASE}/livebot/${eventTicker}/config?${params}`, {
+    method: 'PUT'
+  });
+  return res.json();
+}

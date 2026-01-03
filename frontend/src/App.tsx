@@ -2,15 +2,19 @@ import { useState, useEffect } from 'react';
 import { useWebSocket } from './hooks/useWebSocket';
 import { GameCard } from './components/GameCard';
 import { BotPanel } from './components/BotPanel';
-import { 
-  fetchGames, 
-  fetchActiveGames, 
-  startLogging, 
+import { LiveBotPanel } from './components/LiveBotPanel';
+import {
+  fetchGames,
+  fetchActiveGames,
+  startLogging,
   stopLogging,
   startBot,
   stopBot,
   updateBotConfig,
-  getBotTrades
+  getBotTrades,
+  startLiveBot,
+  stopLiveBot,
+  updateLiveBotConfig
 } from './lib/api';
 import { RefreshCw, Wifi, WifiOff } from 'lucide-react';
 
@@ -40,6 +44,8 @@ function App() {
   const [botRunning, setBotRunning] = useState<Record<string, boolean>>({});
   const [botTrades, setBotTrades] = useState<Record<string, any[]>>({});
   const [botSummary, setBotSummary] = useState<Record<string, any>>({});
+  const [liveBotRunning, setLiveBotRunning] = useState<Record<string, boolean>>({});
+  const [liveBotWallets, setLiveBotWallets] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
 
   // Determine WebSocket URL based on environment
@@ -85,6 +91,23 @@ function App() {
       if (ticker) {
         setBotRunning(prev => ({ ...prev, [ticker]: false }));
       }
+    } else if (lastMessage.type === 'live_bot_started') {
+      const ticker = lastMessage.event_ticker;
+      if (ticker) {
+        setLiveBotRunning(prev => ({ ...prev, [ticker]: true }));
+      }
+    } else if (lastMessage.type === 'live_bot_stopped') {
+      const ticker = lastMessage.event_ticker;
+      if (ticker) {
+        setLiveBotRunning(prev => ({ ...prev, [ticker]: false }));
+      }
+    } else if (lastMessage.type === 'live_bot_wallet') {
+      const ticker = lastMessage.event_ticker;
+      if (ticker && lastMessage.data) {
+        setLiveBotWallets(prev => ({ ...prev, [ticker]: lastMessage.data }));
+      }
+    } else if (lastMessage.type === 'live_bot_entry' || lastMessage.type === 'live_bot_exit') {
+      // Wallet update will follow automatically
     } else if (lastMessage.type === 'init') {
       if (lastMessage.data?.active_games) {
         setActiveGames(lastMessage.data.active_games);
@@ -99,6 +122,16 @@ function App() {
         lastMessage.data.active_bots.forEach((ticker: string) => {
           loadBotTrades(ticker);
         });
+      }
+      if (lastMessage.data?.active_live_bots) {
+        const runningLiveBots: Record<string, boolean> = {};
+        lastMessage.data.active_live_bots.forEach((ticker: string) => {
+          runningLiveBots[ticker] = true;
+        });
+        setLiveBotRunning(runningLiveBots);
+      }
+      if (lastMessage.data?.live_bot_wallets) {
+        setLiveBotWallets(lastMessage.data.live_bot_wallets);
       }
     }
   }, [lastMessage]);
@@ -170,6 +203,32 @@ function App() {
       await updateBotConfig(eventTicker, config);
     } catch (e) {
       console.error('Failed to update config:', e);
+    }
+  };
+
+  const handleStartLiveBot = async (eventTicker: string, config: any) => {
+    try {
+      await startLiveBot(eventTicker, config);
+      setLiveBotRunning(prev => ({ ...prev, [eventTicker]: true }));
+    } catch (e) {
+      console.error('Failed to start live bot:', e);
+    }
+  };
+
+  const handleStopLiveBot = async (eventTicker: string) => {
+    try {
+      await stopLiveBot(eventTicker);
+      setLiveBotRunning(prev => ({ ...prev, [eventTicker]: false }));
+    } catch (e) {
+      console.error('Failed to stop live bot:', e);
+    }
+  };
+
+  const handleUpdateLiveBotConfig = async (eventTicker: string, config: any) => {
+    try {
+      await updateLiveBotConfig(eventTicker, config);
+    } catch (e) {
+      console.error('Failed to update live bot config:', e);
     }
   };
 
@@ -253,6 +312,29 @@ function App() {
 
           {/* Bot Panel Sidebar */}
           <div className="space-y-6">
+            {/* Live Paper Bot Panel */}
+            {selectedGame && isSelectedActive ? (
+              <LiveBotPanel
+                eventTicker={selectedGame}
+                isRunning={liveBotRunning[selectedGame] || false}
+                wallet={liveBotWallets[selectedGame] || null}
+                onStart={(config) => handleStartLiveBot(selectedGame, config)}
+                onStop={() => handleStopLiveBot(selectedGame)}
+                onUpdateConfig={(config) => handleUpdateLiveBotConfig(selectedGame, config)}
+              />
+            ) : (
+              <div className="bg-slate-800 rounded-xl p-6 border-2 border-purple-500/50 text-center">
+                <div className="text-slate-400 mb-2 text-4xl">💰</div>
+                <h3 className="font-bold mb-2">Live Paper Bot</h3>
+                <p className="text-sm text-slate-400">
+                  {selectedGame
+                    ? 'Start logging this game to enable live trading'
+                    : 'Select an active game to start trading'}
+                </p>
+              </div>
+            )}
+
+            {/* Dry Run Bot Panel */}
             {selectedGame && isSelectedActive ? (
               <BotPanel
                 eventTicker={selectedGame}
@@ -266,9 +348,9 @@ function App() {
             ) : (
               <div className="bg-slate-800 rounded-xl p-6 border-2 border-slate-700 text-center">
                 <div className="text-slate-400 mb-2 text-4xl">🤖</div>
-                <h3 className="font-bold mb-2">Bot Panel</h3>
+                <h3 className="font-bold mb-2">Dry Run Bot</h3>
                 <p className="text-sm text-slate-400">
-                  {selectedGame 
+                  {selectedGame
                     ? 'Start logging this game to enable the bot'
                     : 'Select an active game to use the bot'}
                 </p>
@@ -290,8 +372,14 @@ function App() {
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Bots Running</span>
+                  <span className="text-slate-400">Live Bots</span>
                   <span className="font-bold text-purple-400">
+                    {Object.values(liveBotRunning).filter(Boolean).length}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Dry Run Bots</span>
+                  <span className="font-bold text-blue-400">
                     {Object.values(botRunning).filter(Boolean).length}
                   </span>
                 </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DollarSign, TrendingUp, TrendingDown, Activity, Settings } from 'lucide-react';
 
 interface WalletStatus {
@@ -27,6 +27,10 @@ interface WalletStatus {
 
 interface LiveBotPanelProps {
   eventTicker: string;
+  gameTitle?: string;
+  homeTeam?: string;
+  awayTeam?: string;
+  tickCount?: number;
   isRunning: boolean;
   wallet: WalletStatus | null;
   onStart: (config: any) => void;
@@ -36,6 +40,10 @@ interface LiveBotPanelProps {
 
 export function LiveBotPanel({
   eventTicker: _eventTicker,
+  gameTitle,
+  homeTeam,
+  awayTeam,
+  tickCount,
   isRunning,
   wallet,
   onStart,
@@ -43,6 +51,8 @@ export function LiveBotPanel({
   onUpdateConfig
 }: LiveBotPanelProps) {
   const [showConfig, setShowConfig] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const [timeSinceUpdate, setTimeSinceUpdate] = useState<string>('--');
   const [config, setConfig] = useState({
     bankroll: 500,
     momentum_threshold: 8,
@@ -51,6 +61,30 @@ export function LiveBotPanel({
     breakeven_trigger: 5,
     position_size_pct: 0.5
   });
+
+  // Update last update time when wallet changes
+  useEffect(() => {
+    if (wallet) {
+      setLastUpdate(new Date());
+    }
+  }, [wallet]);
+
+  // Update time since last update every second
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (lastUpdate) {
+        const seconds = Math.floor((Date.now() - lastUpdate.getTime()) / 1000);
+        if (seconds < 60) {
+          setTimeSinceUpdate(`${seconds}s ago`);
+        } else {
+          const minutes = Math.floor(seconds / 60);
+          setTimeSinceUpdate(`${minutes}m ago`);
+        }
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [lastUpdate]);
 
   const handleStart = () => {
     onStart(config);
@@ -61,9 +95,12 @@ export function LiveBotPanel({
     setShowConfig(false);
   };
 
+  const gameDisplay = gameTitle || (homeTeam && awayTeam ? `${awayTeam} @ ${homeTeam}` : null);
+
   return (
     <div className="bg-slate-800 rounded-xl p-4 border-2 border-purple-500/50">
-      <div className="flex items-center justify-between mb-4">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <DollarSign className="text-purple-400" size={20} />
           <h3 className="font-bold">Live Paper Bot</h3>
@@ -95,6 +132,28 @@ export function LiveBotPanel({
           )}
         </div>
       </div>
+
+      {/* Game Info & Status */}
+      {gameDisplay && (
+        <div className="mb-3 pb-3 border-b border-slate-700">
+          <div className="text-sm font-medium text-slate-300 mb-1">{gameDisplay}</div>
+          {isRunning && (
+            <div className="flex items-center gap-3 text-xs text-slate-400">
+              <div className="flex items-center gap-1.5">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                </span>
+                <span>Live</span>
+              </div>
+              {tickCount !== undefined && (
+                <span>Tick #{tickCount}</span>
+              )}
+              <span>{timeSinceUpdate}</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Config Panel */}
       {showConfig && (

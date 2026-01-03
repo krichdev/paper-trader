@@ -272,6 +272,7 @@ function App() {
                       key={game.event_ticker}
                       game={game}
                       isActive={true}
+                      isSelected={selectedGame === game.event_ticker}
                       onStop={handleStopLogging}
                       onSelect={setSelectedGame}
                     />
@@ -313,16 +314,22 @@ function App() {
           {/* Bot Panel Sidebar */}
           <div className="space-y-6">
             {/* Live Paper Bot Panel */}
-            {selectedGame && isSelectedActive ? (
-              <LiveBotPanel
-                eventTicker={selectedGame}
-                isRunning={liveBotRunning[selectedGame] || false}
-                wallet={liveBotWallets[selectedGame] || null}
-                onStart={(config) => handleStartLiveBot(selectedGame, config)}
-                onStop={() => handleStopLiveBot(selectedGame)}
-                onUpdateConfig={(config) => handleUpdateLiveBotConfig(selectedGame, config)}
-              />
-            ) : (
+            {selectedGame && isSelectedActive ? (() => {
+              const selectedGameData = activeGames.find(g => g.event_ticker === selectedGame);
+              return (
+                <LiveBotPanel
+                  eventTicker={selectedGame}
+                  homeTeam={selectedGameData?.home_team}
+                  awayTeam={selectedGameData?.away_team}
+                  tickCount={selectedGameData?.tick_count}
+                  isRunning={liveBotRunning[selectedGame] || false}
+                  wallet={liveBotWallets[selectedGame] || null}
+                  onStart={(config) => handleStartLiveBot(selectedGame, config)}
+                  onStop={() => handleStopLiveBot(selectedGame)}
+                  onUpdateConfig={(config) => handleUpdateLiveBotConfig(selectedGame, config)}
+                />
+              );
+            })() : (
               <div className="bg-slate-800 rounded-xl p-6 border-2 border-purple-500/50 text-center">
                 <div className="text-slate-400 mb-2 text-4xl">💰</div>
                 <h3 className="font-bold mb-2">Live Paper Bot</h3>

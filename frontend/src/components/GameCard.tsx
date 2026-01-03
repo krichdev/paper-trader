@@ -21,17 +21,19 @@ interface GameCardProps {
     league?: string;
   };
   isActive?: boolean;
+  isSelected?: boolean;
   onStart?: (eventTicker: string, milestoneId: string) => void;
   onStop?: (eventTicker: string) => void;
   onSelect?: (eventTicker: string) => void;
 }
 
-export function GameCard({ game, isActive, onStart, onStop, onSelect }: GameCardProps) {
+export function GameCard({ game, isActive, isSelected, onStart, onStop, onSelect }: GameCardProps) {
   const isLogging = isActive && game.tick_count !== undefined;
 
   return (
-    <div 
+    <div
       className={`bg-slate-800 rounded-xl p-4 border-2 transition-all cursor-pointer hover:bg-slate-750 ${
+        isSelected ? 'border-purple-500 shadow-lg shadow-purple-500/20' :
         isLogging ? 'border-green-500' : 'border-slate-700'
       }`}
       onClick={() => onSelect?.(game.event_ticker)}

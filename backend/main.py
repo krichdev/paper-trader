@@ -374,6 +374,13 @@ async def get_user_stats(user_id: int = Depends(get_current_user_id)):
     }
 
 
+@app.get("/api/leaderboard")
+async def get_leaderboard():
+    """Get leaderboard of top users by P&L"""
+    leaderboard = await db.get_leaderboard(limit=100)
+    return {"leaderboard": leaderboard}
+
+
 # ============================================================================
 # GAME ROUTES
 # ============================================================================

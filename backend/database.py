@@ -338,6 +338,43 @@ class Database:
                     WHERE id = $1
                 """, user_id)
 
+    async def get_leaderboard(self, limit: int = 50) -> List[Dict]:
+        """Get leaderboard of top users by total P&L"""
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT
+                    u.id,
+                    u.username,
+                    u.current_balance,
+                    u.starting_balance,
+                    u.total_pnl,
+                    u.created_at,
+                    COALESCE(COUNT(DISTINCT bt.id) FILTER (WHERE bt.exit_price IS NOT NULL), 0) as total_trades,
+                    COALESCE(COUNT(DISTINCT bt.id) FILTER (WHERE bt.pnl > 0), 0) as wins,
+                    COALESCE(COUNT(DISTINCT bt.id) FILTER (WHERE bt.pnl <= 0 AND bt.exit_price IS NOT NULL), 0) as losses,
+                    COALESCE(
+                        CASE
+                            WHEN COUNT(DISTINCT bt.id) FILTER (WHERE bt.exit_price IS NOT NULL) > 0
+                            THEN (COUNT(DISTINCT bt.id) FILTER (WHERE bt.pnl > 0)::float /
+                                  COUNT(DISTINCT bt.id) FILTER (WHERE bt.exit_price IS NOT NULL)::float * 100)
+                            ELSE 0
+                        END,
+                        0
+                    ) as win_rate,
+                    CASE
+                        WHEN u.starting_balance > 0
+                        THEN ((u.current_balance - u.starting_balance) / u.starting_balance * 100)
+                        ELSE 0
+                    END as return_pct
+                FROM users u
+                LEFT JOIN bot_trades bt ON bt.user_id = u.id
+                GROUP BY u.id, u.username, u.current_balance, u.starting_balance, u.total_pnl, u.created_at
+                ORDER BY u.total_pnl DESC
+                LIMIT $1
+            """, limit)
+
+            return [dict(row) for row in rows]
+
     # ========================================================================
     # SESSION METHODS
     # ========================================================================

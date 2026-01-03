@@ -6,6 +6,7 @@ import App from './App'
 import { Login } from './pages/Login'
 import { Register } from './pages/Register'
 import { UserProfile } from './pages/UserProfile'
+import { Leaderboard } from './pages/Leaderboard'
 import './index.css'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -41,6 +42,11 @@ function AppRoutes() {
       <Route path="/profile" element={
         <ProtectedRoute>
           <UserProfile />
+        </ProtectedRoute>
+      } />
+      <Route path="/leaderboard" element={
+        <ProtectedRoute>
+          <Leaderboard />
         </ProtectedRoute>
       } />
     </Routes>

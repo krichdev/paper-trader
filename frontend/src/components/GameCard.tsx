@@ -1,4 +1,4 @@
-import { Play, Square, Download } from 'lucide-react';
+import { Play, Square, Download, Clock } from 'lucide-react';
 import { getExportUrl } from '../lib/api';
 
 interface GameCardProps {
@@ -29,6 +29,12 @@ interface GameCardProps {
 
 export function GameCard({ game, isActive, isSelected, onStart, onStop, onSelect }: GameCardProps) {
   const isLogging = isActive && game.tick_count !== undefined;
+
+  // Check if game hasn't started yet (within 15 minutes before start time)
+  const gameStartTime = game.start_date ? new Date(game.start_date) : null;
+  const now = new Date();
+  const fifteenMinutesBeforeStart = gameStartTime ? new Date(gameStartTime.getTime() - 15 * 60 * 1000) : null;
+  const hasNotStarted = !!(fifteenMinutesBeforeStart && now < fifteenMinutesBeforeStart);
 
   return (
     <div
@@ -101,17 +107,31 @@ export function GameCard({ game, isActive, isSelected, onStart, onStop, onSelect
       )}
 
       {/* Actions */}
-      <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+      <div onClick={e => e.stopPropagation()}>
         {!isLogging ? (
-          <button
-            onClick={() => onStart?.(game.event_ticker, game.milestone_id || '')}
-            className="flex-1 bg-green-600 hover:bg-green-500 text-white py-2 px-4 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors"
-          >
-            <Play size={18} />
-            Start Logging
-          </button>
-        ) : (
           <>
+            <button
+              onClick={() => onStart?.(game.event_ticker, game.milestone_id || '')}
+              disabled={hasNotStarted}
+              className={`w-full py-2 px-4 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors ${
+                hasNotStarted
+                  ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
+                  : 'bg-green-600 hover:bg-green-500 text-white'
+              }`}
+              title={hasNotStarted ? 'Game starts in more than 15 minutes' : ''}
+            >
+              {hasNotStarted ? <Clock size={18} /> : <Play size={18} />}
+              {hasNotStarted ? 'Not Started' : 'Start Logging'}
+            </button>
+            {hasNotStarted && gameStartTime && (
+              <div className="text-xs text-slate-400 mt-2 flex items-center justify-center gap-1">
+                <Clock size={12} />
+                Available {Math.ceil((fifteenMinutesBeforeStart!.getTime() - now.getTime()) / 60000)} min before start
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="flex gap-2">
             <button
               onClick={() => onStop?.(game.event_ticker)}
               className="flex-1 bg-red-600 hover:bg-red-500 text-white py-2 px-4 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors"
@@ -125,7 +145,7 @@ export function GameCard({ game, isActive, isSelected, onStart, onStop, onSelect
             >
               <Download size={18} />
             </a>
-          </>
+          </div>
         )}
       </div>
     </div>

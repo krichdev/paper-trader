@@ -316,6 +316,28 @@ class Database:
             """, user_id)
             return [dict(row) for row in rows]
 
+    async def reset_user_account(self, user_id: int) -> None:
+        """Reset user account - delete all trades and transactions, reset balance to starting"""
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+                # Delete all trades
+                await conn.execute("""
+                    DELETE FROM bot_trades WHERE user_id = $1
+                """, user_id)
+
+                # Delete all wallet transactions
+                await conn.execute("""
+                    DELETE FROM wallet_transactions WHERE user_id = $1
+                """, user_id)
+
+                # Reset balance and P&L
+                await conn.execute("""
+                    UPDATE users SET
+                        current_balance = starting_balance,
+                        total_pnl = 0
+                    WHERE id = $1
+                """, user_id)
+
     # ========================================================================
     # SESSION METHODS
     # ========================================================================

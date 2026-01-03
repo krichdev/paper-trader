@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { DollarSign, TrendingUp, TrendingDown, Activity, Settings } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, Activity, Settings, AlertTriangle, Plus } from 'lucide-react';
 
 interface WalletStatus {
   bankroll: number;
@@ -34,9 +34,11 @@ interface LiveBotPanelProps {
   isRunning: boolean;
   wallet: WalletStatus | null;
   trades?: any[];
+  lowBalance?: boolean;
   onStart: (config: any) => void;
   onStop: () => void;
   onUpdateConfig: (config: any) => void;
+  onTopUp?: (amount: number) => Promise<void>;
 }
 
 export function LiveBotPanel({
@@ -48,11 +50,15 @@ export function LiveBotPanel({
   isRunning,
   wallet,
   trades = [],
+  lowBalance = false,
   onStart,
   onStop,
-  onUpdateConfig
+  onUpdateConfig,
+  onTopUp
 }: LiveBotPanelProps) {
   const [showConfig, setShowConfig] = useState(false);
+  const [showTopUp, setShowTopUp] = useState(false);
+  const [topUpAmount, setTopUpAmount] = useState<number>(100);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [timeSinceUpdate, setTimeSinceUpdate] = useState<string>('--');
   const [config, setConfig] = useState({
@@ -95,6 +101,18 @@ export function LiveBotPanel({
   const handleUpdateConfig = () => {
     onUpdateConfig(config);
     setShowConfig(false);
+  };
+
+  const handleTopUp = async () => {
+    if (onTopUp && topUpAmount > 0) {
+      try {
+        await onTopUp(topUpAmount);
+        setShowTopUp(false);
+        setTopUpAmount(100);
+      } catch (e: any) {
+        alert(e.message || 'Failed to top up bot');
+      }
+    }
   };
 
   const gameDisplay = gameTitle || (homeTeam && awayTeam ? `${awayTeam} @ ${homeTeam}` : null);
@@ -154,6 +172,65 @@ export function LiveBotPanel({
               <span>{timeSinceUpdate}</span>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Low Balance Warning */}
+      {isRunning && lowBalance && (
+        <div className="mb-3 p-3 bg-yellow-900/30 border border-yellow-600/50 rounded-lg">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="text-yellow-400 flex-shrink-0" size={18} />
+            <div>
+              <div className="text-sm font-medium text-yellow-400 mb-1">Low Balance Warning</div>
+              <div className="text-xs text-yellow-200/80 mb-2">
+                Bot has insufficient funds to enter new trades. Top up to continue trading.
+              </div>
+              {onTopUp && (
+                <button
+                  onClick={() => setShowTopUp(true)}
+                  className="text-xs px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 rounded font-medium transition-colors flex items-center gap-1"
+                >
+                  <Plus size={14} />
+                  Top Up Bot
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Top Up Panel */}
+      {showTopUp && (
+        <div className="mb-4 p-4 bg-slate-700/50 rounded-lg border border-slate-600">
+          <h4 className="font-bold mb-3 text-sm">Top Up Bot Bankroll</h4>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-slate-400 text-xs mb-1">Amount to Add ($)</label>
+              <input
+                type="number"
+                value={topUpAmount}
+                onChange={(e) => setTopUpAmount(parseFloat(e.target.value) || 0)}
+                className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-sm"
+                step="50"
+                min="1"
+              />
+              <p className="text-xs text-slate-500 mt-1">Funds will be deducted from your wallet</p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleTopUp}
+                className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-medium text-sm transition-colors"
+              >
+                Add ${topUpAmount.toFixed(0)}
+              </button>
+              <button
+                onClick={() => setShowTopUp(false)}
+                className="px-4 py-2 bg-slate-600 hover:bg-slate-500 rounded-lg text-sm transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

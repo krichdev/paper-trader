@@ -134,6 +134,17 @@ class LivePaperBot:
         # Check entry
         elif self.bankroll > 1:
             await self._check_entry(home_price, tick)
+        elif self.bankroll <= 1 and not self.position:
+            # Bot is out of funds and has no position - notify user
+            if self.broadcast_fn:
+                await self.broadcast_fn({
+                    "type": "live_bot_low_balance",
+                    "event_ticker": self.event_ticker,
+                    "data": {
+                        "bankroll": self.bankroll,
+                        "message": "Bot has insufficient funds to enter new trades"
+                    }
+                })
 
         # Broadcast wallet update
         if self.broadcast_fn:
@@ -390,6 +401,54 @@ class LivePaperBot:
             self.breakeven_trigger = config['breakeven_trigger']
         if 'position_size_pct' in config:
             self.position_size_pct = config['position_size_pct']
+
+    async def top_up(self, amount: float):
+        """Add more funds to the bot's bankroll from user wallet"""
+        if not self.user_id:
+            raise ValueError("Cannot top up bot without user_id")
+
+        # Check user has enough balance
+        user = await self.db.get_user_by_id(self.user_id)
+        if not user:
+            raise ValueError("User not found")
+
+        if user['current_balance'] < amount:
+            raise ValueError(f"Insufficient funds. Available: ${user['current_balance']:.2f}, Requested: ${amount:.2f}")
+
+        # Deduct from user wallet
+        new_balance = user['current_balance'] - amount
+        await self.db.update_user_balance(self.user_id, new_balance)
+        await self.db.add_wallet_transaction(
+            user_id=self.user_id,
+            amount=-amount,
+            tx_type='bot_topup',
+            balance_after=new_balance,
+            event_ticker=self.event_ticker
+        )
+
+        # Add to bot bankroll
+        self.bankroll += amount
+
+        # Update database
+        await self.db.update_live_bot_bankroll(self.event_ticker, self.bankroll)
+
+        # Broadcast update
+        if self.broadcast_fn:
+            await self.broadcast_fn({
+                "type": "live_bot_topup",
+                "event_ticker": self.event_ticker,
+                "data": {
+                    "amount": amount,
+                    "new_bankroll": self.bankroll,
+                    "user_balance": new_balance
+                }
+            })
+
+        return {
+            "amount": amount,
+            "new_bankroll": self.bankroll,
+            "user_balance": new_balance
+        }
 
     async def stop(self):
         """Stop the bot and close any open positions"""

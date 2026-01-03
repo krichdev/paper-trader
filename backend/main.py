@@ -778,6 +778,70 @@ async def update_live_bot_config(
     return {"status": "updated", "wallet": active_live_bots[event_ticker].get_wallet_status()}
 
 
+@app.post("/api/livebot/{event_ticker}/topup")
+async def topup_live_bot(
+    event_ticker: str,
+    amount: float,
+    user_id: int = Depends(get_current_user_id)
+):
+    """Add more funds to a running live bot from user wallet"""
+    if event_ticker not in active_live_bots:
+        raise HTTPException(status_code=404, detail="Live bot not running")
+
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="Top-up amount must be positive")
+
+    bot = active_live_bots[event_ticker]
+
+    # Verify this bot belongs to the user
+    if bot.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to top up this bot")
+
+    try:
+        result = await bot.top_up(amount)
+        return {"status": "success", **result}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/user/reset")
+async def reset_user_account(user_id: int = Depends(get_current_user_id)):
+    """Reset user account - delete all trades and transactions, reset to starting balance"""
+    user = await db.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Stop all active bots for this user
+    bots_to_stop = []
+    for event_ticker, bot in active_live_bots.items():
+        if bot.user_id == user_id:
+            bots_to_stop.append((event_ticker, bot))
+
+    for event_ticker, bot in bots_to_stop:
+        await bot.stop()
+        if event_ticker in active_loggers:
+            active_loggers[event_ticker].detach_bot()
+        del active_live_bots[event_ticker]
+
+    # Reset account in database
+    await db.reset_user_account(user_id)
+
+    # Get updated user data
+    updated_user = await db.get_user_by_id(user_id)
+
+    return {
+        "status": "success",
+        "message": "Account reset successfully",
+        "user": {
+            "id": updated_user['id'],
+            "username": updated_user['username'],
+            "current_balance": updated_user['current_balance'],
+            "starting_balance": updated_user['starting_balance'],
+            "total_pnl": updated_user['total_pnl']
+        }
+    }
+
+
 # ============================================================================
 # HISTORY ROUTES
 # ============================================================================

@@ -143,3 +143,31 @@ export async function updateLiveBotConfig(eventTicker: string, config: {
   });
   return res.json();
 }
+
+export async function topUpLiveBot(eventTicker: string, amount: number) {
+  const res = await fetch(`${API_BASE}/livebot/${eventTicker}/topup?amount=${amount}`, {
+    method: 'POST',
+    credentials: 'include'
+  });
+
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.detail || 'Failed to top up bot');
+  }
+
+  return res.json();
+}
+
+export async function resetUserAccount() {
+  const res = await fetch(`${API_BASE}/user/reset`, {
+    method: 'POST',
+    credentials: 'include'
+  });
+
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.detail || 'Failed to reset account');
+  }
+
+  return res.json();
+}

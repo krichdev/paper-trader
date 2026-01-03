@@ -12,7 +12,8 @@ import {
   getBotTrades,
   startLiveBot,
   stopLiveBot,
-  updateLiveBotConfig
+  updateLiveBotConfig,
+  topUpLiveBot
 } from './lib/api';
 import { RefreshCw, Wifi, WifiOff, LogOut, Wallet, User } from 'lucide-react';
 
@@ -43,6 +44,7 @@ function App() {
   const [liveBotRunning, setLiveBotRunning] = useState<Record<string, boolean>>({});
   const [liveBotWallets, setLiveBotWallets] = useState<Record<string, any>>({});
   const [liveBotTrades, setLiveBotTrades] = useState<Record<string, any[]>>({});
+  const [liveBotLowBalance, setLiveBotLowBalance] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [leagueFilter, setLeagueFilter] = useState<string>('all');
   const [searchText, setSearchText] = useState<string>('');
@@ -103,6 +105,18 @@ function App() {
       if (lastMessage.type === 'live_bot_exit') {
         refreshUser();
       }
+    } else if (lastMessage.type === 'live_bot_low_balance') {
+      const ticker = lastMessage.event_ticker;
+      if (ticker) {
+        setLiveBotLowBalance(prev => ({ ...prev, [ticker]: true }));
+      }
+    } else if (lastMessage.type === 'live_bot_topup') {
+      const ticker = lastMessage.event_ticker;
+      if (ticker) {
+        // Clear low balance warning after top-up
+        setLiveBotLowBalance(prev => ({ ...prev, [ticker]: false }));
+      }
+      refreshUser();
     } else if (lastMessage.type === 'init') {
       if (lastMessage.data?.active_games) {
         setActiveGames(lastMessage.data.active_games);
@@ -195,6 +209,18 @@ function App() {
       await updateLiveBotConfig(eventTicker, config);
     } catch (e) {
       console.error('Failed to update live bot config:', e);
+    }
+  };
+
+  const handleTopUpLiveBot = async (eventTicker: string, amount: number) => {
+    try {
+      await topUpLiveBot(eventTicker, amount);
+      // Clear low balance warning
+      setLiveBotLowBalance(prev => ({ ...prev, [eventTicker]: false }));
+      await refreshUser(); // Refresh wallet balance after top-up
+    } catch (e: any) {
+      console.error('Failed to top up live bot:', e);
+      throw e; // Re-throw so component can handle error display
     }
   };
 
@@ -314,9 +340,11 @@ function App() {
                   isRunning={liveBotRunning[selectedGame] || false}
                   wallet={liveBotWallets[selectedGame] || null}
                   trades={liveBotTrades[selectedGame] || []}
+                  lowBalance={liveBotLowBalance[selectedGame] || false}
                   onStart={(config) => handleStartLiveBot(selectedGame, config)}
                   onStop={() => handleStopLiveBot(selectedGame)}
                   onUpdateConfig={(config) => handleUpdateLiveBotConfig(selectedGame, config)}
+                  onTopUp={(amount) => handleTopUpLiveBot(selectedGame, amount)}
                 />
               );
             })() : (

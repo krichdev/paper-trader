@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { TrendingUp, TrendingDown, DollarSign, Activity, Calendar, Award, ArrowLeft } from 'lucide-react';
+import { resetUserAccount } from '../lib/api';
+import { TrendingUp, TrendingDown, DollarSign, Activity, Calendar, Award, ArrowLeft, RotateCcw } from 'lucide-react';
 
 interface UserStats {
   user: {
@@ -31,9 +32,12 @@ interface UserStats {
 }
 
 export function UserProfile() {
-  const { user } = useAuth();
+  const { refreshUser } = useAuth();
+  const navigate = useNavigate();
   const [stats, setStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
     loadStats();
@@ -52,6 +56,22 @@ export function UserProfile() {
       console.error('Failed to load stats:', e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResetAccount = async () => {
+    setResetting(true);
+    try {
+      await resetUserAccount();
+      await refreshUser();
+      await loadStats();
+      setShowResetConfirm(false);
+      navigate('/');
+    } catch (e: any) {
+      console.error('Failed to reset account:', e);
+      alert(e.message || 'Failed to reset account');
+    } finally {
+      setResetting(false);
     }
   };
 
@@ -87,13 +107,60 @@ export function UserProfile() {
             <ArrowLeft size={18} />
             <span className="text-sm">Back to Trading</span>
           </Link>
-          <h1 className="text-2xl sm:text-3xl font-bold mb-2">
-            {stats.user.username}'s Profile
-          </h1>
-          <p className="text-slate-400 text-sm">
-            Member since {new Date(stats.user.created_at).toLocaleDateString()}
-          </p>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-2">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold mb-2">
+                {stats.user.username}'s Profile
+              </h1>
+              <p className="text-slate-400 text-sm">
+                Member since {new Date(stats.user.created_at).toLocaleDateString()}
+              </p>
+            </div>
+            <button
+              onClick={() => setShowResetConfirm(true)}
+              className="self-start sm:self-auto px-4 py-2 bg-red-600/20 hover:bg-red-600/30 border border-red-600/50 rounded-lg text-red-400 font-medium transition-colors flex items-center gap-2"
+            >
+              <RotateCcw size={18} />
+              Reset Account
+            </button>
+          </div>
         </div>
+
+        {/* Reset Confirmation Modal */}
+        {showResetConfirm && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+            <div className="bg-slate-800 rounded-xl p-6 max-w-md w-full border-2 border-red-600/50">
+              <h2 className="text-xl font-bold mb-4 text-red-400">Confirm Account Reset</h2>
+              <p className="text-slate-300 mb-2">
+                This will permanently delete all your:
+              </p>
+              <ul className="list-disc list-inside text-slate-300 mb-4 space-y-1">
+                <li>Trading history and statistics</li>
+                <li>All bot trades and positions</li>
+                <li>Transaction records</li>
+              </ul>
+              <p className="text-slate-300 mb-6">
+                Your balance will be reset to <span className="font-bold text-green-400">${stats.user.starting_balance.toFixed(2)}</span>. This action cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleResetAccount}
+                  disabled={resetting}
+                  className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {resetting ? 'Resetting...' : 'Yes, Reset Account'}
+                </button>
+                <button
+                  onClick={() => setShowResetConfirm(false)}
+                  disabled={resetting}
+                  className="px-4 py-2 bg-slate-600 hover:bg-slate-500 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Account Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

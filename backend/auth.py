@@ -11,13 +11,17 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def hash_password(password: str) -> str:
-    """Hash a password"""
-    return pwd_context.hash(password)
+    """Hash a password (truncates to 72 bytes for bcrypt compatibility)"""
+    # Bcrypt has a max password length of 72 bytes
+    password_bytes = password.encode('utf-8')[:72]
+    return pwd_context.hash(password_bytes.decode('utf-8', errors='ignore'))
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify a password against a hash"""
-    return pwd_context.verify(plain_password, hashed_password)
+    """Verify a password against a hash (truncates to 72 bytes for bcrypt compatibility)"""
+    # Bcrypt has a max password length of 72 bytes
+    password_bytes = plain_password.encode('utf-8')[:72]
+    return pwd_context.verify(password_bytes.decode('utf-8', errors='ignore'), hashed_password)
 
 
 async def get_current_user_id(user_id: Optional[str] = Cookie(None)) -> int:

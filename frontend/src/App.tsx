@@ -239,11 +239,26 @@ function App() {
 
   const isSelectedActive = activeGames.some(g => g.event_ticker === selectedGame);
 
-  // Filter games by league and search text, excluding completed games
+  // Filter games by league and search text, excluding completed/past/in-progress games
   const filteredAvailableGames = availableGames.filter(game => {
     // Filter out completed games
     if (game.status?.toLowerCase().includes('complete') || game.status === 'COMPLETE') {
       return false;
+    }
+
+    // Filter out in-progress games (already started, can't log fresh)
+    if (game.status?.toUpperCase() === 'INPROGRESS') {
+      return false;
+    }
+
+    // Filter out games with start times in the past (more than 1 hour ago)
+    if (game.start_date) {
+      const startTime = new Date(game.start_date);
+      const now = new Date();
+      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+      if (startTime < oneHourAgo) {
+        return false;
+      }
     }
 
     // Filter by league

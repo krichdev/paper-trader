@@ -110,6 +110,7 @@ function App() {
       }
     } else if (lastMessage.type === 'live_bot_entry' || lastMessage.type === 'live_bot_exit') {
       const ticker = lastMessage.event_ticker;
+      console.log('[WebSocket] Live bot trade event:', lastMessage.type, ticker);
       if (ticker) {
         loadLiveBotTrades(ticker);
       }
@@ -172,7 +173,9 @@ function App() {
 
   const loadLiveBotTrades = async (eventTicker: string) => {
     try {
+      console.log('[API] Loading live bot trades for:', eventTicker);
       const data = await getBotTrades(eventTicker);
+      console.log('[API] Loaded trades:', data.trades?.length, 'trades');
       setLiveBotTrades(prev => ({ ...prev, [eventTicker]: data.trades || [] }));
     } catch (e) {
       console.error('Failed to load live bot trades:', e);

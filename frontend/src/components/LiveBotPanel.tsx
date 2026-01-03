@@ -362,9 +362,9 @@ export function LiveBotPanel({
             <div className="p-3 bg-slate-700/30 rounded-lg">
               <div className="flex items-center justify-between mb-2">
                 <div className="text-slate-400 text-xs">Trade History</div>
-                <div className="text-xs text-slate-500">{trades.length} trades</div>
+                <div className="text-xs text-slate-500">{trades.length} trade{trades.length !== 1 ? 's' : ''}</div>
               </div>
-              <div className="space-y-2 max-h-64 overflow-y-auto">
+              <div className="space-y-2 max-h-80 overflow-y-auto pr-1" style={{scrollbarWidth: 'thin'}}>
                 {trades.slice().reverse().map((trade: any, idx: number) => (
                   <div
                     key={trade.id || idx}

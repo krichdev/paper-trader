@@ -47,6 +47,7 @@ class GameLogger:
         self.last_quarter = 0
         self.last_clock = ""
         self.last_play = ""
+        self.last_status = ""
 
         # Attached bot
         self.bot = None
@@ -136,29 +137,33 @@ class GameLogger:
         """Perform one tick - fetch data and store"""
         self.tick_count += 1
         now = datetime.now(timezone.utc)
-        
+
         # Fetch market data
         market_data = await self._fetch_market_data()
-        
+
         # Fetch live game state
         live_data = await self._fetch_live_data()
-        
+
         # Build tick record
         tick = self._build_tick(now, market_data, live_data)
-        
-        # Store in database
-        await self.db.insert_tick(tick)
-        await self.db.update_session_tick(self.event_ticker, self.tick_count)
-        
-        # Update last known state
+
+        # Check if anything meaningful has changed (deduplication)
+        has_changed = self._has_tick_changed(tick)
+
+        # Only store in database if something changed
+        if has_changed:
+            await self.db.insert_tick(tick)
+            await self.db.update_session_tick(self.event_ticker, self.tick_count)
+
+        # Update last known state (always update to track changes)
         self._update_state(tick)
-        
-        # Notify bot if attached
+
+        # Notify bot if attached (always notify so bot can react quickly)
         if self.bot:
             await self.bot.on_tick(tick)
-        
-        # Broadcast to WebSocket clients
-        if self.broadcast_fn:
+
+        # Broadcast to WebSocket clients (only if changed to reduce traffic)
+        if has_changed and self.broadcast_fn:
             # Convert datetime to string for JSON serialization
             tick_data = tick.copy()
             if 'timestamp' in tick_data and tick_data['timestamp']:
@@ -171,7 +176,7 @@ class GameLogger:
                 "event_ticker": self.event_ticker,
                 "data": tick_data
             })
-        
+
         # Check if game ended
         if tick.get('status') in ['complete', 'final', 'closed']:
             self.is_running = False
@@ -281,6 +286,26 @@ class GameLogger:
 
         return tick_data
     
+    def _has_tick_changed(self, tick: dict) -> bool:
+        """Check if tick has meaningful changes compared to last state"""
+        # Always store first tick
+        if self.tick_count == 1:
+            return True
+
+        # Check if any meaningful field has changed
+        changed = (
+            tick.get('home_price', 0) != self.last_home_price or
+            tick.get('away_price', 0) != self.last_away_price or
+            tick.get('home_score', 0) != self.last_home_score or
+            tick.get('away_score', 0) != self.last_away_score or
+            tick.get('quarter', 0) != self.last_quarter or
+            tick.get('clock', '') != self.last_clock or
+            tick.get('last_play', '') != self.last_play or
+            tick.get('status', '') != self.last_status
+        )
+
+        return changed
+
     def _update_state(self, tick: dict):
         """Update last known state"""
         self.last_home_price = tick.get('home_price', 0)
@@ -290,3 +315,4 @@ class GameLogger:
         self.last_quarter = tick.get('quarter', 0)
         self.last_clock = tick.get('clock', '')
         self.last_play = tick.get('last_play', '')
+        self.last_status = tick.get('status', '')

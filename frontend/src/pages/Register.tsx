@@ -6,6 +6,7 @@ export function Register() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [startingBalance, setStartingBalance] = useState<number>(10000);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
@@ -28,7 +29,7 @@ export function Register() {
     setLoading(true);
 
     try {
-      await register(username, password);
+      await register(username, password, startingBalance);
       navigate('/');
     } catch (err: any) {
       setError(err.message || 'Registration failed');
@@ -48,7 +49,7 @@ export function Register() {
         <div className="bg-slate-800 rounded-xl p-8 border-2 border-slate-700">
           <div className="bg-purple-500/10 border border-purple-500/50 rounded-lg p-3 mb-6">
             <p className="text-sm text-purple-300">
-              You'll start with <span className="font-bold">$10,000</span> in virtual cash to test your trading strategies!
+              Choose your starting balance to test your trading strategies!
             </p>
           </div>
 
@@ -93,6 +94,26 @@ export function Register() {
                 required
                 minLength={6}
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Starting Balance</label>
+              <select
+                value={startingBalance}
+                onChange={(e) => setStartingBalance(Number(e.target.value))}
+                className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-purple-500"
+              >
+                <option value={500}>$500 - Conservative Start</option>
+                <option value={1000}>$1,000 - Beginner Friendly</option>
+                <option value={5000}>$5,000 - Intermediate</option>
+                <option value={10000}>$10,000 - Standard (Recommended)</option>
+                <option value={25000}>$25,000 - Advanced</option>
+                <option value={50000}>$50,000 - Pro Trader</option>
+                <option value={100000}>$100,000 - Big Bankroll</option>
+              </select>
+              <p className="text-xs text-slate-400 mt-2">
+                This is virtual money for testing. You can always create a new account to try different strategies!
+              </p>
             </div>
 
             <button

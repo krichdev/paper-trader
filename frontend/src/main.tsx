@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext'
 import App from './App'
 import { Login } from './pages/Login'
 import { Register } from './pages/Register'
+import { UserProfile } from './pages/UserProfile'
 import './index.css'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -35,6 +36,11 @@ function AppRoutes() {
       <Route path="/" element={
         <ProtectedRoute>
           <App />
+        </ProtectedRoute>
+      } />
+      <Route path="/profile" element={
+        <ProtectedRoute>
+          <UserProfile />
         </ProtectedRoute>
       } />
     </Routes>

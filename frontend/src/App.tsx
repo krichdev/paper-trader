@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useAuth } from './contexts/AuthContext';
 import { GameCard } from './components/GameCard';
@@ -13,7 +14,7 @@ import {
   stopLiveBot,
   updateLiveBotConfig
 } from './lib/api';
-import { RefreshCw, Wifi, WifiOff, LogOut, Wallet } from 'lucide-react';
+import { RefreshCw, Wifi, WifiOff, LogOut, Wallet, User } from 'lucide-react';
 
 interface Game {
   event_ticker: string;
@@ -275,6 +276,13 @@ function App() {
                 >
                   <RefreshCw size={16} className={`sm:w-[18px] sm:h-[18px] ${loading ? 'animate-spin' : ''}`} />
                 </button>
+                <Link
+                  to="/profile"
+                  className="p-1.5 sm:p-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
+                  title="Profile & Stats"
+                >
+                  <User size={16} className="sm:w-[18px] sm:h-[18px]" />
+                </Link>
                 <button
                   onClick={logout}
                   className="p-1.5 sm:p-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"

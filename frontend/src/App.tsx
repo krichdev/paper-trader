@@ -167,7 +167,15 @@ function App() {
   const handleStartLogging = async (eventTicker: string, milestoneId: string) => {
     try {
       await startLogging(eventTicker, milestoneId);
-      loadGames();
+
+      // Optimistically add game to active games immediately
+      const game = availableGames.find(g => g.event_ticker === eventTicker);
+      if (game) {
+        setActiveGames(prev => [...prev, { ...game, tick_count: 0 }]);
+      }
+
+      // Refresh from server to get accurate state
+      await loadGames();
     } catch (e) {
       console.error('Failed to start logging:', e);
     }
@@ -176,7 +184,12 @@ function App() {
   const handleStopLogging = async (eventTicker: string) => {
     try {
       await stopLogging(eventTicker);
-      loadGames();
+
+      // Optimistically remove game from active games immediately
+      setActiveGames(prev => prev.filter(g => g.event_ticker !== eventTicker));
+
+      // Refresh from server to get accurate state
+      await loadGames();
     } catch (e) {
       console.error('Failed to stop logging:', e);
     }

@@ -6,6 +6,7 @@ import asyncpg
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 from dataclasses import dataclass
+import json
 
 
 @dataclass
@@ -263,7 +264,7 @@ class Database:
                     live_bot_starting_bankroll = $3,
                     live_bot_config = $4
                 WHERE event_ticker = $1
-            """, event_ticker, bankroll, starting_bankroll, config)
+            """, event_ticker, bankroll, starting_bankroll, json.dumps(config))
 
     async def update_live_bot_bankroll(self, event_ticker: str, bankroll: float) -> None:
         """Update just the bankroll for a live bot"""
@@ -377,6 +378,10 @@ class Database:
     async def insert_trade(self, trade: Dict) -> int:
         """Insert a new trade, return trade ID"""
         async with self.pool.acquire() as conn:
+            config_snapshot = trade.get('config_snapshot')
+            if config_snapshot and isinstance(config_snapshot, dict):
+                config_snapshot = json.dumps(config_snapshot)
+
             trade_id = await conn.fetchval("""
                 INSERT INTO bot_trades (
                     event_ticker, side, team, entry_price, entry_tick, entry_time, contracts, config_snapshot
@@ -386,7 +391,7 @@ class Database:
                 trade['event_ticker'], trade['side'], trade.get('team'),
                 trade['entry_price'], trade['entry_tick'], trade['entry_time'],
                 trade.get('contracts', 0),
-                trade.get('config_snapshot')
+                config_snapshot
             )
             return trade_id
     

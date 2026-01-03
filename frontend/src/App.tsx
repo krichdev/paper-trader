@@ -50,6 +50,8 @@ function App() {
   const [liveBotWallets, setLiveBotWallets] = useState<Record<string, any>>({});
   const [liveBotTrades, setLiveBotTrades] = useState<Record<string, any[]>>({});
   const [loading, setLoading] = useState(true);
+  const [leagueFilter, setLeagueFilter] = useState<string>('all');
+  const [searchText, setSearchText] = useState<string>('');
 
   // Determine WebSocket URL based on environment
   const wsUrl = import.meta.env.PROD 
@@ -267,6 +269,34 @@ function App() {
 
   const isSelectedActive = activeGames.some(g => g.event_ticker === selectedGame);
 
+  // Filter games by league and search text, excluding completed games
+  const filteredAvailableGames = availableGames.filter(game => {
+    // Filter out completed games
+    if (game.status?.toLowerCase().includes('complete') || game.status === 'COMPLETE') {
+      return false;
+    }
+
+    // Filter by league
+    if (leagueFilter !== 'all') {
+      const gameLeague = game.league?.toLowerCase() || '';
+      if (leagueFilter === 'nfl' && gameLeague !== 'nfl') return false;
+      if (leagueFilter === 'nba' && gameLeague !== 'nba') return false;
+      if (leagueFilter === 'ncaaf' && gameLeague !== 'ncaaf') return false;
+      if (leagueFilter === 'ncaab' && gameLeague !== 'ncaab') return false;
+    }
+
+    // Filter by search text
+    if (searchText) {
+      const search = searchText.toLowerCase();
+      const title = game.title?.toLowerCase() || '';
+      const homeTeam = game.home_team?.toLowerCase() || '';
+      const awayTeam = game.away_team?.toLowerCase() || '';
+      return title.includes(search) || homeTeam.includes(search) || awayTeam.includes(search);
+    }
+
+    return true;
+  });
+
   return (
     <div className="min-h-screen bg-slate-900">
       {/* Header */}
@@ -328,61 +358,12 @@ function App() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto p-4">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Games List */}
-          <div className="lg:col-span-2 space-y-4">
-            {/* Active Games Section */}
-            {activeGames.length > 0 && (
-              <div>
-                <h2 className="text-lg font-bold mb-3 text-green-400">🟢 Active Logging</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {activeGames.map(game => (
-                    <GameCard
-                      key={game.event_ticker}
-                      game={game}
-                      isActive={true}
-                      isSelected={selectedGame === game.event_ticker}
-                      onStop={handleStopLogging}
-                      onSelect={setSelectedGame}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
+      <main className="max-w-7xl mx-auto p-2 sm:p-4">
+        {/* Mobile: vertical stack, Desktop: 2-column grid */}
+        <div className="flex flex-col lg:grid lg:grid-cols-3 gap-4 lg:gap-6">
 
-            {/* Available Games Section */}
-            <div>
-              <h2 className="text-lg font-bold mb-3">📅 Available Games</h2>
-              {loading ? (
-                <div className="text-center py-8 text-slate-400">
-                  <RefreshCw size={24} className="animate-spin mx-auto mb-2" />
-                  Loading games...
-                </div>
-              ) : availableGames.length === 0 ? (
-                <div className="text-center py-8 text-slate-400">
-                  No upcoming games found. Check back closer to game time.
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {availableGames
-                    .filter(g => !activeGames.find(ag => ag.event_ticker === g.event_ticker))
-                    .map(game => (
-                      <GameCard
-                        key={game.event_ticker}
-                        game={game}
-                        isActive={false}
-                        onStart={handleStartLogging}
-                        onSelect={setSelectedGame}
-                      />
-                    ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Bot Panel Sidebar */}
-          <div className="space-y-6">
+          {/* Live Bot Panel & Stats - First on mobile, right sidebar on desktop */}
+          <div className="space-y-4 lg:order-2 lg:col-span-1">
             {/* Live Paper Bot Panel */}
             {selectedGame && isSelectedActive ? (() => {
               const selectedGameData = activeGames.find(g => g.event_ticker === selectedGame);
@@ -401,10 +382,10 @@ function App() {
                 />
               );
             })() : (
-              <div className="bg-slate-800 rounded-xl p-6 border-2 border-purple-500/50 text-center">
-                <div className="text-slate-400 mb-2 text-4xl">💰</div>
-                <h3 className="font-bold mb-2">Live Paper Bot</h3>
-                <p className="text-sm text-slate-400">
+              <div className="bg-slate-800 rounded-xl p-4 sm:p-6 border-2 border-purple-500/50 text-center">
+                <div className="text-slate-400 mb-2 text-3xl sm:text-4xl">💰</div>
+                <h3 className="font-bold mb-2 text-sm sm:text-base">Live Paper Bot</h3>
+                <p className="text-xs sm:text-sm text-slate-400">
                   {selectedGame
                     ? 'Start logging this game to enable live trading'
                     : 'Select an active game to start trading'}
@@ -412,33 +393,10 @@ function App() {
               </div>
             )}
 
-            {/* Dry Run Bot Panel */}
-            {selectedGame && isSelectedActive ? (
-              <BotPanel
-                eventTicker={selectedGame}
-                isRunning={botRunning[selectedGame] || false}
-                trades={botTrades[selectedGame] || []}
-                summary={botSummary[selectedGame]}
-                onStart={(config) => handleStartBot(selectedGame, config)}
-                onStop={() => handleStopBot(selectedGame)}
-                onUpdateConfig={(config) => handleUpdateBotConfig(selectedGame, config)}
-              />
-            ) : (
-              <div className="bg-slate-800 rounded-xl p-6 border-2 border-slate-700 text-center">
-                <div className="text-slate-400 mb-2 text-4xl">🤖</div>
-                <h3 className="font-bold mb-2">Dry Run Bot</h3>
-                <p className="text-sm text-slate-400">
-                  {selectedGame
-                    ? 'Start logging this game to enable the bot'
-                    : 'Select an active game to use the bot'}
-                </p>
-              </div>
-            )}
-
-            {/* Quick Stats */}
-            <div className="bg-slate-800 rounded-xl p-4 border-2 border-slate-700">
-              <h3 className="font-bold mb-3">📊 Session Stats</h3>
-              <div className="space-y-2 text-sm">
+            {/* Session Stats */}
+            <div className="bg-slate-800 rounded-xl p-3 sm:p-4 border-2 border-slate-700">
+              <h3 className="font-bold mb-2 sm:mb-3 text-sm sm:text-base">📊 Session Stats</h3>
+              <div className="space-y-2 text-xs sm:text-sm">
                 <div className="flex justify-between">
                   <span className="text-slate-400">Active Games</span>
                   <span className="font-bold text-green-400">{activeGames.length}</span>
@@ -455,15 +413,95 @@ function App() {
                     {Object.values(liveBotRunning).filter(Boolean).length}
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Dry Run Bots</span>
-                  <span className="font-bold text-blue-400">
-                    {Object.values(botRunning).filter(Boolean).length}
-                  </span>
-                </div>
               </div>
             </div>
           </div>
+
+          {/* Games List - Second on mobile, left side on desktop */}
+          <div className="space-y-4 lg:order-1 lg:col-span-2">
+            {/* Active Games Section */}
+            {activeGames.length > 0 && (
+              <div>
+                <h2 className="text-base sm:text-lg font-bold mb-3 text-green-400">🟢 Active Logging</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                  {activeGames.map(game => (
+                    <GameCard
+                      key={game.event_ticker}
+                      game={game}
+                      isActive={true}
+                      isSelected={selectedGame === game.event_ticker}
+                      onStop={handleStopLogging}
+                      onSelect={setSelectedGame}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Available Games Section */}
+            <div>
+              <h2 className="text-base sm:text-lg font-bold mb-3">📅 Available Games</h2>
+
+              {/* Filters & Search */}
+              <div className="mb-4 space-y-2 sm:space-y-3">
+                {/* League Filter Pills */}
+                <div className="flex flex-wrap gap-2">
+                  {['all', 'nfl', 'nba', 'ncaaf', 'ncaab'].map(league => (
+                    <button
+                      key={league}
+                      onClick={() => setLeagueFilter(league)}
+                      className={`px-3 py-1.5 text-xs sm:text-sm rounded-lg font-medium transition-colors ${
+                        leagueFilter === league
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                      }`}
+                    >
+                      {league === 'all' ? 'All' : league.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Search Input */}
+                <input
+                  type="text"
+                  placeholder="Search teams..."
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  className="w-full px-3 py-2 text-sm bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              {loading ? (
+                <div className="text-center py-8 text-slate-400">
+                  <RefreshCw size={24} className="animate-spin mx-auto mb-2" />
+                  <p className="text-sm">Loading games...</p>
+                </div>
+              ) : filteredAvailableGames.length === 0 ? (
+                <div className="text-center py-8 text-slate-400">
+                  <p className="text-sm">
+                    {searchText || leagueFilter !== 'all'
+                      ? 'No games match your filters.'
+                      : 'No upcoming games found. Check back closer to game time.'}
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                  {filteredAvailableGames
+                    .filter(g => !activeGames.find(ag => ag.event_ticker === g.event_ticker))
+                    .map(game => (
+                      <GameCard
+                        key={game.event_ticker}
+                        game={game}
+                        isActive={false}
+                        onStart={handleStartLogging}
+                        onSelect={setSelectedGame}
+                      />
+                    ))}
+                </div>
+              )}
+            </div>
+          </div>
+
         </div>
       </main>
     </div>

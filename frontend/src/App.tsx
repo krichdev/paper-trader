@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useWebSocket } from './hooks/useWebSocket';
+import { useAuth } from './contexts/AuthContext';
 import { GameCard } from './components/GameCard';
 import { BotPanel } from './components/BotPanel';
 import { LiveBotPanel } from './components/LiveBotPanel';
@@ -16,7 +17,7 @@ import {
   stopLiveBot,
   updateLiveBotConfig
 } from './lib/api';
-import { RefreshCw, Wifi, WifiOff } from 'lucide-react';
+import { RefreshCw, Wifi, WifiOff, LogOut, Wallet } from 'lucide-react';
 
 interface Game {
   event_ticker: string;
@@ -38,6 +39,7 @@ interface Game {
 }
 
 function App() {
+  const { user, logout } = useAuth();
   const [availableGames, setAvailableGames] = useState<Game[]>([]);
   const [activeGames, setActiveGames] = useState<Game[]>([]);
   const [selectedGame, setSelectedGame] = useState<string | null>(null);
@@ -261,10 +263,28 @@ function App() {
       {/* Header */}
       <header className="bg-slate-800 border-b border-slate-700 px-4 py-3">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <h1 className="text-xl font-bold flex items-center gap-2">
-            🏈 Paper Trader
-          </h1>
           <div className="flex items-center gap-4">
+            <h1 className="text-xl font-bold flex items-center gap-2">
+              🏈 Paper Trader
+            </h1>
+            {user && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-700/50 rounded-lg border border-slate-600">
+                <Wallet size={16} className="text-green-400" />
+                <div className="text-sm">
+                  <div className="font-bold">${user.current_balance.toFixed(2)}</div>
+                  <div className={`text-xs ${user.total_pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {user.total_pnl >= 0 ? '+' : ''}{user.total_pnl.toFixed(2)} P&L
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-4">
+            {user && (
+              <div className="text-sm text-slate-400">
+                {user.username}
+              </div>
+            )}
             <div className={`flex items-center gap-1 text-sm ${isConnected ? 'text-green-400' : 'text-red-400'}`}>
               {isConnected ? <Wifi size={16} /> : <WifiOff size={16} />}
               {isConnected ? 'Live' : 'Disconnected'}
@@ -273,8 +293,16 @@ function App() {
               onClick={loadGames}
               className="p-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
               disabled={loading}
+              title="Refresh games"
             >
               <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+            </button>
+            <button
+              onClick={logout}
+              className="p-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
+              title="Logout"
+            >
+              <LogOut size={18} />
             </button>
           </div>
         </div>

@@ -2,16 +2,12 @@ import { useState, useEffect } from 'react';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useAuth } from './contexts/AuthContext';
 import { GameCard } from './components/GameCard';
-import { BotPanel } from './components/BotPanel';
 import { LiveBotPanel } from './components/LiveBotPanel';
 import {
   fetchGames,
   fetchActiveGames,
   startLogging,
   stopLogging,
-  startBot,
-  stopBot,
-  updateBotConfig,
   getBotTrades,
   startLiveBot,
   stopLiveBot,
@@ -43,9 +39,6 @@ function App() {
   const [availableGames, setAvailableGames] = useState<Game[]>([]);
   const [activeGames, setActiveGames] = useState<Game[]>([]);
   const [selectedGame, setSelectedGame] = useState<string | null>(null);
-  const [botRunning, setBotRunning] = useState<Record<string, boolean>>({});
-  const [botTrades, setBotTrades] = useState<Record<string, any[]>>({});
-  const [botSummary, setBotSummary] = useState<Record<string, any>>({});
   const [liveBotRunning, setLiveBotRunning] = useState<Record<string, boolean>>({});
   const [liveBotWallets, setLiveBotWallets] = useState<Record<string, any>>({});
   const [liveBotTrades, setLiveBotTrades] = useState<Record<string, any[]>>({});
@@ -81,21 +74,6 @@ function App() {
           ? { ...game, ...lastMessage.data }
           : game
       ));
-    } else if (lastMessage.type === 'bot_entry' || lastMessage.type === 'bot_exit') {
-      if (lastMessage.event_ticker) {
-        loadBotTrades(lastMessage.event_ticker);
-      }
-    } else if (lastMessage.type === 'bot_started') {
-      const ticker = lastMessage.event_ticker;
-      if (ticker) {
-        setBotRunning(prev => ({ ...prev, [ticker]: true }));
-        loadBotTrades(ticker);
-      }
-    } else if (lastMessage.type === 'bot_stopped') {
-      const ticker = lastMessage.event_ticker;
-      if (ticker) {
-        setBotRunning(prev => ({ ...prev, [ticker]: false }));
-      }
     } else if (lastMessage.type === 'live_bot_started') {
       const ticker = lastMessage.event_ticker;
       if (ticker) {
@@ -127,17 +105,6 @@ function App() {
     } else if (lastMessage.type === 'init') {
       if (lastMessage.data?.active_games) {
         setActiveGames(lastMessage.data.active_games);
-      }
-      if (lastMessage.data?.active_bots) {
-        const runningBots: Record<string, boolean> = {};
-        lastMessage.data.active_bots.forEach((ticker: string) => {
-          runningBots[ticker] = true;
-        });
-        setBotRunning(runningBots);
-        // Load trades for active bots
-        lastMessage.data.active_bots.forEach((ticker: string) => {
-          loadBotTrades(ticker);
-        });
       }
       if (lastMessage.data?.active_live_bots) {
         const runningLiveBots: Record<string, boolean> = {};
@@ -171,16 +138,6 @@ function App() {
     setLoading(false);
   };
 
-  const loadBotTrades = async (eventTicker: string) => {
-    try {
-      const data = await getBotTrades(eventTicker);
-      setBotTrades(prev => ({ ...prev, [eventTicker]: data.trades || [] }));
-      setBotSummary(prev => ({ ...prev, [eventTicker]: data.summary }));
-    } catch (e) {
-      console.error('Failed to load bot trades:', e);
-    }
-  };
-
   const loadLiveBotTrades = async (eventTicker: string) => {
     try {
       console.log('[API] Loading live bot trades for:', eventTicker);
@@ -207,33 +164,6 @@ function App() {
       loadGames();
     } catch (e) {
       console.error('Failed to stop logging:', e);
-    }
-  };
-
-  const handleStartBot = async (eventTicker: string, config: any) => {
-    try {
-      await startBot(eventTicker, config);
-      setBotRunning(prev => ({ ...prev, [eventTicker]: true }));
-      loadBotTrades(eventTicker);
-    } catch (e) {
-      console.error('Failed to start bot:', e);
-    }
-  };
-
-  const handleStopBot = async (eventTicker: string) => {
-    try {
-      await stopBot(eventTicker);
-      setBotRunning(prev => ({ ...prev, [eventTicker]: false }));
-    } catch (e) {
-      console.error('Failed to stop bot:', e);
-    }
-  };
-
-  const handleUpdateBotConfig = async (eventTicker: string, config: any) => {
-    try {
-      await updateBotConfig(eventTicker, config);
-    } catch (e) {
-      console.error('Failed to update config:', e);
     }
   };
 

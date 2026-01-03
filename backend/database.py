@@ -94,12 +94,31 @@ class Database:
                     away_team TEXT,
                     status TEXT DEFAULT 'active',
                     started_at TIMESTAMPTZ DEFAULT NOW(),
-                    last_tick INT DEFAULT 0,
-                    live_bot_active BOOLEAN DEFAULT FALSE,
-                    live_bot_bankroll FLOAT,
-                    live_bot_starting_bankroll FLOAT,
-                    live_bot_config JSONB
+                    last_tick INT DEFAULT 0
                 )
+            """)
+
+            # Add new columns for live bot persistence (migration)
+            await conn.execute("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                                   WHERE table_name='game_sessions' AND column_name='live_bot_active') THEN
+                        ALTER TABLE game_sessions ADD COLUMN live_bot_active BOOLEAN DEFAULT FALSE;
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                                   WHERE table_name='game_sessions' AND column_name='live_bot_bankroll') THEN
+                        ALTER TABLE game_sessions ADD COLUMN live_bot_bankroll FLOAT;
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                                   WHERE table_name='game_sessions' AND column_name='live_bot_starting_bankroll') THEN
+                        ALTER TABLE game_sessions ADD COLUMN live_bot_starting_bankroll FLOAT;
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                                   WHERE table_name='game_sessions' AND column_name='live_bot_config') THEN
+                        ALTER TABLE game_sessions ADD COLUMN live_bot_config JSONB;
+                    END IF;
+                END $$;
             """)
             
             await conn.execute("""
@@ -148,11 +167,21 @@ class Database:
                     exit_time TIMESTAMPTZ,
                     exit_reason TEXT,
                     pnl FLOAT,
-                    contracts INT,
                     config_snapshot JSONB
                 )
             """)
-            
+
+            # Add contracts column (migration)
+            await conn.execute("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                                   WHERE table_name='bot_trades' AND column_name='contracts') THEN
+                        ALTER TABLE bot_trades ADD COLUMN contracts INT;
+                    END IF;
+                END $$;
+            """)
+
             # Create indexes
             await conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_ticks_event ON game_ticks(event_ticker)

@@ -236,6 +236,16 @@ async def register(request: RegisterRequest, response: Response):
     }
 
 
+@app.post("/api/migrate")
+async def run_migrations():
+    """Manually trigger database migrations"""
+    try:
+        await db.create_tables()
+        return {"status": "success", "message": "Tables created successfully"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
 @app.post("/api/auth/login")
 async def login(request: LoginRequest, response: Response):
     """Login user"""

@@ -346,9 +346,11 @@ export function LiveBotPanel({
               </div>
               <div>
                 <div className="text-slate-400">W/L</div>
-                <div className="font-bold text-green-400">{wallet.stats.wins}</div>
-                <span className="text-slate-400">/</span>
-                <div className="font-bold text-red-400 inline">{wallet.stats.losses}</div>
+                <div className="font-bold">
+                  <span className="text-green-400">{wallet.stats.wins}</span>
+                  <span className="text-slate-400">/</span>
+                  <span className="text-red-400">{wallet.stats.losses}</span>
+                </div>
               </div>
             </div>
           </div>

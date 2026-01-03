@@ -1,5 +1,6 @@
 """
 Authentication utilities for password hashing and verification
+Version: 2.0 - Fixed bcrypt 72-byte limit
 """
 
 from passlib.context import CryptContext
@@ -11,15 +12,23 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def hash_password(password: str) -> str:
-    """Hash a password (truncates to 72 characters for bcrypt compatibility)"""
-    # Bcrypt has a max password length of 72 bytes - truncate string to be safe
-    return pwd_context.hash(password[:72])
+    """Hash a password (truncates to 72 bytes for bcrypt compatibility)"""
+    # Bcrypt has a max password length of 72 bytes
+    # Encode and truncate at byte level, then decode safely
+    password_bytes = password.encode('utf-8')[:72]
+    # Decode, ignoring any incomplete multi-byte sequences at the end
+    truncated_password = password_bytes.decode('utf-8', errors='ignore')
+    return pwd_context.hash(truncated_password)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify a password against a hash (truncates to 72 characters for bcrypt compatibility)"""
-    # Bcrypt has a max password length of 72 bytes - truncate string to be safe
-    return pwd_context.verify(plain_password[:72], hashed_password)
+    """Verify a password against a hash (truncates to 72 bytes for bcrypt compatibility)"""
+    # Bcrypt has a max password length of 72 bytes
+    # Encode and truncate at byte level, then decode safely
+    password_bytes = plain_password.encode('utf-8')[:72]
+    # Decode, ignoring any incomplete multi-byte sequences at the end
+    truncated_password = password_bytes.decode('utf-8', errors='ignore')
+    return pwd_context.verify(truncated_password, hashed_password)
 
 
 async def get_current_user_id(user_id: Optional[str] = Cookie(None)) -> int:

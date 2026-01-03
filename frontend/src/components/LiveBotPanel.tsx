@@ -33,6 +33,7 @@ interface LiveBotPanelProps {
   tickCount?: number;
   isRunning: boolean;
   wallet: WalletStatus | null;
+  trades?: any[];
   onStart: (config: any) => void;
   onStop: () => void;
   onUpdateConfig: (config: any) => void;
@@ -46,6 +47,7 @@ export function LiveBotPanel({
   tickCount,
   isRunning,
   wallet,
+  trades = [],
   onStart,
   onStop,
   onUpdateConfig
@@ -267,7 +269,7 @@ export function LiveBotPanel({
             </div>
             <div className={`text-sm font-medium ${wallet.total_return_pct >= 0 ? 'text-green-400' : 'text-red-400'}`}>
               {wallet.total_return_pct >= 0 ? '+' : ''}{wallet.total_return_pct.toFixed(1)}%
-              ({wallet.total_return_pct >= 0 ? '+' : ''}${wallet.total_pnl.toFixed(2)})
+              ({wallet.total_value >= wallet.starting_bankroll ? '+' : ''}${(wallet.total_value - wallet.starting_bankroll).toFixed(2)})
             </div>
           </div>
 
@@ -354,6 +356,52 @@ export function LiveBotPanel({
               </div>
             </div>
           </div>
+
+          {/* Trade History */}
+          {trades.length > 0 && (
+            <div className="p-3 bg-slate-700/30 rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-slate-400 text-xs">Trade History</div>
+                <div className="text-xs text-slate-500">{trades.length} trades</div>
+              </div>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {trades.slice().reverse().map((trade: any, idx: number) => (
+                  <div
+                    key={trade.id || idx}
+                    className="p-2 bg-slate-800/50 rounded text-xs border border-slate-600"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        {trade.side === 'long' ? (
+                          <TrendingUp size={14} className="text-green-400" />
+                        ) : (
+                          <TrendingDown size={14} className="text-red-400" />
+                        )}
+                        <span className="font-bold uppercase text-slate-300">{trade.side}</span>
+                      </div>
+                      <div className={`font-bold ${
+                        trade.pnl > 0 ? 'text-green-400' :
+                        trade.pnl < 0 ? 'text-red-400' : 'text-slate-400'
+                      }`}>
+                        {trade.pnl > 0 ? '+' : ''}${trade.pnl?.toFixed(2) || '0.00'}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-slate-400">
+                      <div>Entry: <span className="text-slate-200">{trade.entry_price}¢</span></div>
+                      <div>Exit: <span className="text-slate-200">{trade.exit_price}¢</span></div>
+                      <div>Contracts: <span className="text-slate-200">{trade.contracts || 'N/A'}</span></div>
+                      <div>Reason: <span className="text-slate-200">{trade.exit_reason || 'N/A'}</span></div>
+                    </div>
+                    {trade.entry_time && (
+                      <div className="mt-1 text-slate-500 text-[10px]">
+                        {new Date(trade.entry_time).toLocaleTimeString()}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       ) : !isRunning ? (
         <div className="text-center py-8 text-slate-400">

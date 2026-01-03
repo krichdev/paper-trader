@@ -46,6 +46,7 @@ function App() {
   const [botSummary, setBotSummary] = useState<Record<string, any>>({});
   const [liveBotRunning, setLiveBotRunning] = useState<Record<string, boolean>>({});
   const [liveBotWallets, setLiveBotWallets] = useState<Record<string, any>>({});
+  const [liveBotTrades, setLiveBotTrades] = useState<Record<string, any[]>>({});
   const [loading, setLoading] = useState(true);
 
   // Determine WebSocket URL based on environment
@@ -95,6 +96,7 @@ function App() {
       const ticker = lastMessage.event_ticker;
       if (ticker) {
         setLiveBotRunning(prev => ({ ...prev, [ticker]: true }));
+        loadLiveBotTrades(ticker);
       }
     } else if (lastMessage.type === 'live_bot_stopped') {
       const ticker = lastMessage.event_ticker;
@@ -107,7 +109,10 @@ function App() {
         setLiveBotWallets(prev => ({ ...prev, [ticker]: lastMessage.data }));
       }
     } else if (lastMessage.type === 'live_bot_entry' || lastMessage.type === 'live_bot_exit') {
-      // Wallet update will follow automatically
+      const ticker = lastMessage.event_ticker;
+      if (ticker) {
+        loadLiveBotTrades(ticker);
+      }
     } else if (lastMessage.type === 'init') {
       if (lastMessage.data?.active_games) {
         setActiveGames(lastMessage.data.active_games);
@@ -129,6 +134,10 @@ function App() {
           runningLiveBots[ticker] = true;
         });
         setLiveBotRunning(runningLiveBots);
+        // Load trades for active live bots
+        lastMessage.data.active_live_bots.forEach((ticker: string) => {
+          loadLiveBotTrades(ticker);
+        });
       }
       if (lastMessage.data?.live_bot_wallets) {
         setLiveBotWallets(lastMessage.data.live_bot_wallets);
@@ -158,6 +167,15 @@ function App() {
       setBotSummary(prev => ({ ...prev, [eventTicker]: data.summary }));
     } catch (e) {
       console.error('Failed to load bot trades:', e);
+    }
+  };
+
+  const loadLiveBotTrades = async (eventTicker: string) => {
+    try {
+      const data = await getBotTrades(eventTicker);
+      setLiveBotTrades(prev => ({ ...prev, [eventTicker]: data.trades || [] }));
+    } catch (e) {
+      console.error('Failed to load live bot trades:', e);
     }
   };
 
@@ -210,6 +228,7 @@ function App() {
     try {
       await startLiveBot(eventTicker, config);
       setLiveBotRunning(prev => ({ ...prev, [eventTicker]: true }));
+      loadLiveBotTrades(eventTicker);
     } catch (e) {
       console.error('Failed to start live bot:', e);
     }
@@ -324,6 +343,7 @@ function App() {
                   tickCount={selectedGameData?.tick_count}
                   isRunning={liveBotRunning[selectedGame] || false}
                   wallet={liveBotWallets[selectedGame] || null}
+                  trades={liveBotTrades[selectedGame] || []}
                   onStart={(config) => handleStartLiveBot(selectedGame, config)}
                   onStop={() => handleStopLiveBot(selectedGame)}
                   onUpdateConfig={(config) => handleUpdateLiveBotConfig(selectedGame, config)}

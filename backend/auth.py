@@ -7,8 +7,13 @@ from passlib.context import CryptContext
 from typing import Optional
 from fastapi import Cookie, HTTPException, status
 
-# Password hashing context
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Password hashing context with auto-truncation
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto",
+    bcrypt__ident="2b",  # Use bcrypt variant 2b
+    truncate_error=True  # Auto-truncate passwords longer than max length
+)
 
 
 def hash_password(password: str) -> str:

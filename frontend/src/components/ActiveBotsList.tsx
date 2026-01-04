@@ -250,10 +250,10 @@ export function ActiveBotsList({ activeBots, onToggleExpand, onStopBot, onTopUp,
             key={bot.eventTicker}
             className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden transition-all md:h-[600px] flex flex-col"
           >
-          {/* Collapsed Header - Always Visible */}
+          {/* Header - Clickable on mobile only */}
           <div
             onClick={() => onToggleExpand(bot.eventTicker)}
-            className="p-4 cursor-pointer hover:bg-slate-750 transition-colors flex-shrink-0"
+            className="p-4 md:cursor-default cursor-pointer md:hover:bg-transparent hover:bg-slate-750 transition-colors flex-shrink-0"
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -290,19 +290,20 @@ export function ActiveBotsList({ activeBots, onToggleExpand, onStopBot, onTopUp,
                   </div>
                 </div>
 
-                {/* Expand/Collapse Arrow */}
-                {bot.isExpanded ? (
-                  <ChevronUp className="text-slate-400" size={20} />
-                ) : (
-                  <ChevronDown className="text-slate-400" size={20} />
-                )}
+                {/* Expand/Collapse Arrow - Mobile only */}
+                <div className="md:hidden">
+                  {bot.isExpanded ? (
+                    <ChevronUp className="text-slate-400" size={20} />
+                  ) : (
+                    <ChevronDown className="text-slate-400" size={20} />
+                  )}
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Expanded Content */}
-          {bot.isExpanded && (
-            <div className="px-4 pb-4 space-y-4 border-t border-slate-700 pt-4 flex-1 overflow-y-auto" style={{scrollbarWidth: 'thin'}}>
+          {/* Expanded Content - Always visible on desktop, toggleable on mobile */}
+          <div className={`px-4 pb-4 space-y-4 border-t border-slate-700 pt-4 flex-1 overflow-y-auto ${bot.isExpanded ? 'block' : 'hidden'} md:block`} style={{scrollbarWidth: 'thin'}}>
               {/* Config Panel */}
               {showConfigFor === bot.eventTicker && (
                 <div className="p-4 bg-slate-700/50 rounded-lg border border-slate-600">
@@ -568,7 +569,6 @@ export function ActiveBotsList({ activeBots, onToggleExpand, onStopBot, onTopUp,
                 </button>
               </div>
             </div>
-          )}
         </div>
       ))}
       </div>

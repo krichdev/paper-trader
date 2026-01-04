@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, DollarSign, TrendingUp, TrendingDown, Activity, Settings, Plus, Square } from 'lucide-react';
+import { ChevronDown, ChevronUp, DollarSign, TrendingUp, TrendingDown, Activity, Settings, Plus, Square, ExternalLink } from 'lucide-react';
 
 interface WalletStatus {
   bankroll: number;
@@ -128,7 +128,16 @@ export function ActiveBotsList({ activeBots, onToggleExpand, onStopBot, onTopUp,
                 {/* Game Title */}
                 <div>
                   <h3 className="font-bold">{bot.gameTitle}</h3>
-                  <p className="text-xs text-slate-400">Event: {bot.eventTicker}</p>
+                  <a
+                    href={`https://kalshi.com/markets/${bot.eventTicker}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-xs text-slate-400 hover:text-purple-400 transition-colors inline-flex items-center gap-1"
+                  >
+                    Event: {bot.eventTicker}
+                    <ExternalLink size={10} />
+                  </a>
                 </div>
               </div>
 

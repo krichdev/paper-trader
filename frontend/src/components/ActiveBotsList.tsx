@@ -72,6 +72,23 @@ export function ActiveBotsList({ activeBots, onToggleExpand, onStopBot, onTopUp,
     position_size_pct: 0.5
   });
 
+  // Build Kalshi event URL from event ticker
+  const getKalshiUrl = (eventTicker: string): string => {
+    const lowerTicker = eventTicker.toLowerCase();
+    const series = lowerTicker.split('-')[0];
+
+    // Map series to category
+    const categoryMap: Record<string, string> = {
+      'kxnbagame': 'professional-basketball-game',
+      'kxnflgame': 'professional-football-game',
+      'kxncaafgame': 'college-football-game',
+      'kxncaabgame': 'college-basketball-game'
+    };
+
+    const category = categoryMap[series] || 'event';
+    return `https://kalshi.com/markets/${series}/${category}/${lowerTicker}`;
+  };
+
   if (activeBots.length === 0) {
     return (
       <div className="bg-slate-800 rounded-xl p-8 border border-slate-700 text-center">
@@ -129,7 +146,7 @@ export function ActiveBotsList({ activeBots, onToggleExpand, onStopBot, onTopUp,
                 <div>
                   <h3 className="font-bold">{bot.gameTitle}</h3>
                   <a
-                    href={`https://kalshi.com/markets/${bot.eventTicker}`}
+                    href={getKalshiUrl(bot.eventTicker)}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => e.stopPropagation()}

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { Toaster, toast } from 'react-hot-toast';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useAuth } from './contexts/AuthContext';
 import { GameCard } from './components/GameCard';
@@ -100,6 +101,38 @@ function App() {
     } else if (lastMessage.type === 'live_bot_entry' || lastMessage.type === 'live_bot_exit') {
       const ticker = lastMessage.event_ticker;
       console.log('[WebSocket] Live bot trade event:', lastMessage.type, ticker);
+
+      // Get game title for toast
+      const game = activeGames.find(g => g.event_ticker === ticker) || availableGames.find(g => g.event_ticker === ticker);
+      const gameTitle = game?.title || (game?.home_team && game?.away_team ? `${game.away_team} @ ${game.home_team}` : ticker);
+
+      if (lastMessage.type === 'live_bot_entry' && lastMessage.data) {
+        // Trade entry toast
+        const { side, price, contracts } = lastMessage.data;
+        toast.success(
+          `${gameTitle}\n${side.toUpperCase()} entry at ${price}¢ (${contracts} contracts)`,
+          {
+            duration: 4000,
+            icon: side === 'long' ? '📈' : '📉',
+          }
+        );
+      } else if (lastMessage.type === 'live_bot_exit' && lastMessage.data) {
+        // Trade exit toast
+        const { side, exit_price, pnl, reason } = lastMessage.data;
+        const pnlFormatted = pnl >= 0 ? `+$${pnl.toFixed(2)}` : `-$${Math.abs(pnl).toFixed(2)}`;
+        toast(
+          `${gameTitle}\n${side.toUpperCase()} exit at ${exit_price}¢ • ${pnlFormatted} (${reason})`,
+          {
+            duration: 5000,
+            icon: pnl >= 0 ? '✅' : '❌',
+            style: {
+              background: pnl >= 0 ? '#065f46' : '#991b1b',
+              color: '#fff',
+            },
+          }
+        );
+      }
+
       if (ticker) {
         loadLiveBotTrades(ticker);
       }
@@ -266,6 +299,24 @@ function App() {
 
   return (
     <div className="min-h-screen bg-slate-900">
+      {/* Toast Notifications */}
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          style: {
+            background: '#1e293b',
+            color: '#fff',
+            border: '1px solid #334155',
+          },
+          success: {
+            iconTheme: {
+              primary: '#10b981',
+              secondary: '#fff',
+            },
+          },
+        }}
+      />
+
       {/* Header */}
       <header className="bg-slate-800 border-b border-slate-700 px-2 sm:px-4 py-2 sm:py-3">
         <div className="max-w-7xl mx-auto">

@@ -1,4 +1,5 @@
-import { Rocket, Clock } from 'lucide-react';
+import { Rocket, Clock, TrendingUp } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface GameCardProps {
   game: {
@@ -24,6 +25,7 @@ interface GameCardProps {
 }
 
 export function GameCard({ game, hasBotRunning, onClick }: GameCardProps) {
+  const navigate = useNavigate();
 
   // Check if game hasn't started yet (within 15 minutes before start time)
   const gameStartTime = game.start_date ? new Date(game.start_date) : null;
@@ -33,8 +35,7 @@ export function GameCard({ game, hasBotRunning, onClick }: GameCardProps) {
 
   return (
     <div
-      className="bg-slate-800 rounded-xl p-4 border-2 border-slate-700 transition-all cursor-pointer hover:border-purple-500/50 hover:shadow-lg hover:shadow-purple-500/10"
-      onClick={onClick}
+      className="bg-slate-800 rounded-xl p-4 border-2 border-slate-700 transition-all hover:border-purple-500/50 hover:shadow-lg hover:shadow-purple-500/10"
     >
       {/* Header */}
       <div className="flex justify-between items-start mb-3">
@@ -64,9 +65,19 @@ export function GameCard({ game, hasBotRunning, onClick }: GameCardProps) {
         </div>
       )}
 
-      {/* Deploy Button - Only show if no bot is running */}
+      {/* Action Buttons */}
       {!hasBotRunning && (
-        <div onClick={e => e.stopPropagation()}>
+        <div className="space-y-2">
+          {/* View Market Button */}
+          <button
+            onClick={() => navigate(`/market/${game.event_ticker}`)}
+            className="w-full py-2 px-4 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors bg-slate-700 hover:bg-slate-600 text-white"
+          >
+            <TrendingUp size={18} />
+            View Market
+          </button>
+
+          {/* Deploy Bot Button */}
           <button
             onClick={onClick}
             disabled={hasNotStarted}
@@ -89,16 +100,26 @@ export function GameCard({ game, hasBotRunning, onClick }: GameCardProps) {
         </div>
       )}
 
-      {/* Bot Running Indicator */}
+      {/* Bot Running Indicator + View Market */}
       {hasBotRunning && (
-        <div className="p-3 bg-purple-900/30 border border-purple-500/50 rounded-lg text-center">
-          <div className="flex items-center justify-center gap-2 text-sm font-medium text-purple-400">
-            <div className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
+        <div className="space-y-2">
+          <div className="p-3 bg-purple-900/30 border border-purple-500/50 rounded-lg text-center">
+            <div className="flex items-center justify-center gap-2 text-sm font-medium text-purple-400">
+              <div className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
+              </div>
+              Bot Active - View in Active Bots above
             </div>
-            Bot Active - View in Active Bots above
           </div>
+          {/* View Market Button */}
+          <button
+            onClick={() => navigate(`/market/${game.event_ticker}`)}
+            className="w-full py-2 px-4 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors bg-slate-700 hover:bg-slate-600 text-white"
+          >
+            <TrendingUp size={18} />
+            View Market
+          </button>
         </div>
       )}
     </div>

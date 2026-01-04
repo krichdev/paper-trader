@@ -7,6 +7,7 @@ import { Login } from './pages/Login'
 import { Register } from './pages/Register'
 import { UserProfile } from './pages/UserProfile'
 import { Leaderboard } from './pages/Leaderboard'
+import { MarketDetail } from './pages/MarketDetail'
 import './index.css'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -47,6 +48,11 @@ function AppRoutes() {
       <Route path="/leaderboard" element={
         <ProtectedRoute>
           <Leaderboard />
+        </ProtectedRoute>
+      } />
+      <Route path="/market/:ticker" element={
+        <ProtectedRoute>
+          <MarketDetail />
         </ProtectedRoute>
       } />
     </Routes>

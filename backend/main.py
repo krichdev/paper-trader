@@ -903,6 +903,7 @@ async def get_game_history(event_ticker: str):
 async def cleanup_stale_sessions():
     """Stop logging sessions for games that are clearly finished (>6 hours old)"""
     from datetime import timedelta
+    import re
 
     stopped_sessions = []
     now = datetime.now(timezone.utc)
@@ -910,32 +911,65 @@ async def cleanup_stale_sessions():
 
     # Get all active sessions
     sessions = await db.get_active_sessions()
+    print(f"[CLEANUP] Found {len(sessions)} active sessions")
 
     for session in sessions:
         event_ticker = session['event_ticker']
+        should_stop = False
 
-        # Check if game has a start date more than 6 hours ago
+        # Method 1: Check start_date if available
         if session.get('start_date'):
             start_date = session['start_date']
             if isinstance(start_date, str):
                 start_date = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
 
-            # If game started more than 6 hours ago, stop it
             if start_date < six_hours_ago:
-                if event_ticker in active_loggers:
-                    await active_loggers[event_ticker].stop()
-                    del active_loggers[event_ticker]
+                should_stop = True
+                print(f"[CLEANUP] {event_ticker} - start_date {start_date} is > 6 hours ago")
 
-                # Stop associated bot if running
-                if event_ticker in active_live_bots:
-                    await active_live_bots[event_ticker].stop('CLEANUP_STALE_SESSION')
-                    del active_live_bots[event_ticker]
+        # Method 2: Parse date from event ticker (e.g., KXNCAAFGAME-26JAN02...)
+        # Format: 26JAN02 = Jan 2, 2026
+        date_match = re.search(r'-(\d{2})([A-Z]{3})(\d{2})', event_ticker)
+        if date_match and not should_stop:
+            day = int(date_match.group(1))
+            month_str = date_match.group(2)
+            year_suffix = int(date_match.group(3))
 
-                # Mark session as stopped in DB
-                await db.update_session_status(event_ticker, 'stopped')
+            month_map = {
+                'JAN': 1, 'FEB': 2, 'MAR': 3, 'APR': 4, 'MAY': 5, 'JUN': 6,
+                'JUL': 7, 'AUG': 8, 'SEP': 9, 'OCT': 10, 'NOV': 11, 'DEC': 12
+            }
 
-                stopped_sessions.append(event_ticker)
+            if month_str in month_map:
+                month = month_map[month_str]
+                year = 2000 + year_suffix
 
+                try:
+                    game_date = datetime(year, month, day, tzinfo=timezone.utc)
+                    if game_date < six_hours_ago:
+                        should_stop = True
+                        print(f"[CLEANUP] {event_ticker} - parsed date {game_date} is > 6 hours ago")
+                except ValueError:
+                    pass
+
+        if should_stop:
+            if event_ticker in active_loggers:
+                await active_loggers[event_ticker].stop()
+                del active_loggers[event_ticker]
+                print(f"[CLEANUP] Stopped logger for {event_ticker}")
+
+            # Stop associated bot if running
+            if event_ticker in active_live_bots:
+                await active_live_bots[event_ticker].stop('CLEANUP_STALE_SESSION')
+                del active_live_bots[event_ticker]
+                print(f"[CLEANUP] Stopped bot for {event_ticker}")
+
+            # Mark session as stopped in DB
+            await db.update_session_status(event_ticker, 'stopped')
+
+            stopped_sessions.append(event_ticker)
+
+    print(f"[CLEANUP] Stopped {len(stopped_sessions)} sessions: {stopped_sessions}")
     return {
         "status": "cleanup_complete",
         "stopped_sessions": stopped_sessions,

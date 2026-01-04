@@ -7,7 +7,7 @@ import { VolumeChart } from '../components/charts/VolumeChart';
 import { BotPerformanceChart } from '../components/charts/BotPerformanceChart';
 import { TwitterFeed } from '../components/TwitterFeed';
 import { MarketStats } from '../components/MarketStats';
-import { getGameTicks, getBotTrades } from '../lib/api';
+import { getGameTicks, getBotTrades, getGameInfo } from '../lib/api';
 import { useWebSocket } from '../hooks/useWebSocket';
 
 interface GameTick {
@@ -79,26 +79,47 @@ export function MarketDetail() {
       setError(null);
 
       try {
+        // Fetch game metadata first
+        const gameInfo = await getGameInfo(ticker);
+        if (gameInfo) {
+          setGame({
+            event_ticker: ticker,
+            title: gameInfo.title,
+            home_team: gameInfo.home_team,
+            away_team: gameInfo.away_team,
+            league: gameInfo.league,
+            status: gameInfo.status,
+            home_price: gameInfo.home_price,
+            away_price: gameInfo.away_price,
+            home_score: gameInfo.home_score,
+            away_score: gameInfo.away_score,
+            quarter: gameInfo.quarter,
+            clock: gameInfo.clock,
+            tick_count: 0
+          });
+        }
+
         // Fetch tick data
         const ticksResponse = await getGameTicks(ticker, 1000);
         if (ticksResponse.ticks && ticksResponse.ticks.length > 0) {
           setTickData(ticksResponse.ticks);
 
-          // Extract game info from latest tick
+          // Update game info with latest tick data
           const latestTick = ticksResponse.ticks[ticksResponse.ticks.length - 1];
-          setGame({
+          setGame(prev => ({
+            ...prev,
             event_ticker: ticker,
-            home_team: latestTick.home_team,
-            away_team: latestTick.away_team,
+            home_team: latestTick.home_team || prev?.home_team,
+            away_team: latestTick.away_team || prev?.away_team,
             home_price: latestTick.home_price,
             away_price: latestTick.away_price,
             home_score: latestTick.home_score,
             away_score: latestTick.away_score,
             quarter: latestTick.quarter,
             clock: latestTick.clock,
-            status: latestTick.status,
+            status: latestTick.status || prev?.status,
             tick_count: ticksResponse.ticks.length
-          });
+          }));
         }
 
         // Fetch bot trades (if any)

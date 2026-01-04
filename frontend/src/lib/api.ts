@@ -10,6 +10,12 @@ export async function fetchActiveGames() {
   return res.json();
 }
 
+export async function getGameInfo(eventTicker: string) {
+  const res = await fetch(`${API_BASE}/games`);
+  const data = await res.json();
+  return data.games?.find((game: any) => game.event_ticker === eventTicker);
+}
+
 export async function startLogging(eventTicker: string, milestoneId: string) {
   const res = await fetch(`${API_BASE}/games/${eventTicker}/start?milestone_id=${milestoneId}`, {
     method: 'POST'

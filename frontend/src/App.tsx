@@ -6,7 +6,6 @@ import { useAuth } from './contexts/AuthContext';
 import { GameCard } from './components/GameCard';
 import { GameDetailModal } from './components/GameDetailModal';
 import { ActiveBotsList } from './components/ActiveBotsList';
-import { SessionSummary } from './components/SessionSummary';
 import {
   fetchGames,
   fetchActiveGames,
@@ -418,17 +417,14 @@ function App() {
             onStopBot={handleStopLiveBot}
             onTopUp={(ticker) => handleTopUpLiveBot(ticker, 100)}
             onUpdateConfig={handleUpdateLiveBotConfig}
-          />
-
-          {/* Session Summary */}
-          <SessionSummary
-            activeBotCount={Object.values(liveBotRunning).filter(Boolean).length}
-            totalPnl={Object.values(liveBotWallets).reduce((sum, wallet) => sum + (wallet?.total_pnl || 0), 0)}
-            totalValue={Object.values(liveBotWallets).reduce((sum, wallet) => sum + (wallet?.total_value || 0), 0)}
-            totalStartingValue={Object.values(liveBotWallets).reduce((sum, wallet) => sum + (wallet?.starting_bankroll || 0), 0)}
-            totalTrades={Object.values(liveBotWallets).reduce((sum, wallet) => sum + (wallet?.stats?.total_trades || 0), 0)}
-            totalWins={Object.values(liveBotWallets).reduce((sum, wallet) => sum + (wallet?.stats?.wins || 0), 0)}
-            totalLosses={Object.values(liveBotWallets).reduce((sum, wallet) => sum + (wallet?.stats?.losses || 0), 0)}
+            sessionSummary={{
+              totalPnl: Object.values(liveBotWallets).reduce((sum, wallet) => sum + (wallet?.total_pnl || 0), 0),
+              totalValue: Object.values(liveBotWallets).reduce((sum, wallet) => sum + (wallet?.total_value || 0), 0),
+              totalStartingValue: Object.values(liveBotWallets).reduce((sum, wallet) => sum + (wallet?.starting_bankroll || 0), 0),
+              totalTrades: Object.values(liveBotWallets).reduce((sum, wallet) => sum + (wallet?.stats?.total_trades || 0), 0),
+              totalWins: Object.values(liveBotWallets).reduce((sum, wallet) => sum + (wallet?.stats?.wins || 0), 0),
+              totalLosses: Object.values(liveBotWallets).reduce((sum, wallet) => sum + (wallet?.stats?.losses || 0), 0),
+            }}
           />
 
           {/* Available Games Section */}

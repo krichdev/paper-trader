@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, DollarSign, TrendingUp, TrendingDown, Activity, Settings, Plus, Square, ExternalLink } from 'lucide-react';
+import { ChevronDown, ChevronUp, DollarSign, TrendingUp, TrendingDown, Activity, Settings, Plus, Square, ExternalLink, Award } from 'lucide-react';
 
 interface WalletStatus {
   bankroll: number;
@@ -58,9 +58,17 @@ interface ActiveBotsListProps {
   onStopBot: (eventTicker: string) => void;
   onTopUp: (eventTicker: string) => Promise<void>;
   onUpdateConfig: (eventTicker: string, config: BotConfig) => void;
+  sessionSummary?: {
+    totalPnl: number;
+    totalValue: number;
+    totalStartingValue: number;
+    totalTrades: number;
+    totalWins: number;
+    totalLosses: number;
+  };
 }
 
-export function ActiveBotsList({ activeBots, onToggleExpand, onStopBot, onTopUp, onUpdateConfig }: ActiveBotsListProps) {
+export function ActiveBotsList({ activeBots, onToggleExpand, onStopBot, onTopUp, onUpdateConfig, sessionSummary }: ActiveBotsListProps) {
   const [showConfigFor, setShowConfigFor] = useState<string | null>(null);
   const [showTopUpFor, setShowTopUpFor] = useState<string | null>(null);
   const [topUpAmount, setTopUpAmount] = useState<number>(100);
@@ -117,14 +125,74 @@ export function ActiveBotsList({ activeBots, onToggleExpand, onStopBot, onTopUp,
   };
 
   return (
-    <div className="space-y-3">
+    <div>
       <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
         <Activity className="text-purple-400" size={24} />
         Active Bots
         <span className="text-sm font-normal text-slate-400 ml-2">({activeBots.length})</span>
       </h2>
 
-      <div className="space-y-3 md:max-w-4xl md:mx-auto">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+        {/* Session Summary Card */}
+        {sessionSummary && activeBots.length > 0 && (
+          <div className="bg-gradient-to-br from-purple-900/30 to-slate-800 rounded-xl p-4 border border-purple-500/30 md:col-span-2 lg:col-span-1">
+            <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+              <Activity className="text-purple-400" size={16} />
+              Session Summary
+            </h3>
+
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400">Total Value</span>
+                <span className="font-bold">${sessionSummary.totalValue.toFixed(2)}</span>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400">Total P&L</span>
+                <span className={`font-bold ${sessionSummary.totalPnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  {sessionSummary.totalPnl >= 0 ? '+' : ''}${sessionSummary.totalPnl.toFixed(2)}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400">Return</span>
+                <span className={`font-bold ${
+                  sessionSummary.totalStartingValue > 0
+                    ? ((sessionSummary.totalValue / sessionSummary.totalStartingValue - 1) * 100) >= 0
+                      ? 'text-green-400'
+                      : 'text-red-400'
+                    : 'text-slate-400'
+                }`}>
+                  {sessionSummary.totalStartingValue > 0
+                    ? `${((sessionSummary.totalValue / sessionSummary.totalStartingValue - 1) * 100) >= 0 ? '+' : ''}${((sessionSummary.totalValue / sessionSummary.totalStartingValue - 1) * 100).toFixed(1)}%`
+                    : 'N/A'}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center pt-2 border-t border-slate-700">
+                <span className="text-slate-400 flex items-center gap-1">
+                  <Award size={14} />
+                  Win Rate
+                </span>
+                <span className="font-bold text-blue-400">
+                  {sessionSummary.totalTrades > 0
+                    ? `${((sessionSummary.totalWins / sessionSummary.totalTrades) * 100).toFixed(1)}%`
+                    : '0.0%'}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-500">W/L</span>
+                <span>
+                  <span className="text-green-400">{sessionSummary.totalWins}</span>
+                  <span className="text-slate-400">/</span>
+                  <span className="text-red-400">{sessionSummary.totalLosses}</span>
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeBots.map((bot) => (
           <div
             key={bot.eventTicker}

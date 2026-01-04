@@ -928,12 +928,13 @@ async def cleanup_stale_sessions():
                 print(f"[CLEANUP] {event_ticker} - start_date {start_date} is > 6 hours ago")
 
         # Method 2: Parse date from event ticker (e.g., KXNCAAFGAME-26JAN02...)
-        # Format: 26JAN02 = Jan 2, 2026
+        # Format: YYMMMDD where YY=year, MMM=month name, DD=day
+        # Example: 26JAN03 = January 3, 2026
         date_match = re.search(r'-(\d{2})([A-Z]{3})(\d{2})', event_ticker)
         if date_match and not should_stop:
-            day = int(date_match.group(1))
+            year_suffix = int(date_match.group(1))
             month_str = date_match.group(2)
-            year_suffix = int(date_match.group(3))
+            day = int(date_match.group(3))
 
             month_map = {
                 'JAN': 1, 'FEB': 2, 'MAR': 3, 'APR': 4, 'MAY': 5, 'JUN': 6,

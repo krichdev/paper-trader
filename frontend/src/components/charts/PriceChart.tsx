@@ -29,15 +29,26 @@ interface PriceChartProps {
 }
 
 export function PriceChart({ data, homeTeam, awayTeam, timeRange = 'all' }: PriceChartProps) {
-  // Filter data based on time range
+  // Filter and downsample data based on time range
   const chartData = useMemo(() => {
-    if (timeRange === 'all') return data;
+    let filteredData = data;
 
-    const minutes = timeRange === '5m' ? 5 : 15;
-    const secondsToShow = minutes * 60;
-    const ticksToShow = Math.min(secondsToShow, data.length);
+    if (timeRange !== 'all') {
+      const minutes = timeRange === '5m' ? 5 : 15;
+      const secondsToShow = minutes * 60;
+      const ticksToShow = Math.min(secondsToShow, data.length);
+      filteredData = data.slice(-ticksToShow);
+    }
 
-    return data.slice(-ticksToShow);
+    // Downsample: Show every Nth point to reduce visual clutter
+    // For large datasets, only show ~200 points max
+    const maxPoints = 200;
+    if (filteredData.length > maxPoints) {
+      const step = Math.ceil(filteredData.length / maxPoints);
+      return filteredData.filter((_, index) => index % step === 0);
+    }
+
+    return filteredData;
   }, [data, timeRange]);
 
   // Format chart data for Recharts
@@ -46,8 +57,7 @@ export function PriceChart({ data, homeTeam, awayTeam, timeRange = 'all' }: Pric
       ...tick,
       time: new Date(tick.timestamp).toLocaleTimeString([], {
         hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
+        minute: '2-digit'
       })
     }));
   }, [chartData]);
@@ -71,6 +81,8 @@ export function PriceChart({ data, homeTeam, awayTeam, timeRange = 'all' }: Pric
             stroke="#94a3b8"
             tick={{ fill: '#94a3b8', fontSize: 12 }}
             tickLine={{ stroke: '#475569' }}
+            minTickGap={50}
+            interval="preserveStartEnd"
           />
           <YAxis
             domain={[0, 100]}
@@ -97,19 +109,21 @@ export function PriceChart({ data, homeTeam, awayTeam, timeRange = 'all' }: Pric
             type="monotone"
             dataKey="home_price"
             stroke="#10b981"
-            strokeWidth={2}
+            strokeWidth={2.5}
             dot={false}
             name={homeTeam || 'Home'}
-            activeDot={{ r: 4, fill: '#10b981' }}
+            activeDot={{ r: 5, fill: '#10b981', strokeWidth: 2, stroke: '#fff' }}
+            animationDuration={300}
           />
           <Line
             type="monotone"
             dataKey="away_price"
             stroke="#f97316"
-            strokeWidth={2}
+            strokeWidth={2.5}
             dot={false}
             name={awayTeam || 'Away'}
-            activeDot={{ r: 4, fill: '#f97316' }}
+            activeDot={{ r: 5, fill: '#f97316', strokeWidth: 2, stroke: '#fff' }}
+            animationDuration={300}
           />
         </LineChart>
       </ResponsiveContainer>

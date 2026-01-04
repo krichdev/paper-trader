@@ -124,11 +124,12 @@ export function ActiveBotsList({ activeBots, onToggleExpand, onStopBot, onTopUp,
         <span className="text-sm font-normal text-slate-400 ml-2">({activeBots.length})</span>
       </h2>
 
-      {activeBots.map((bot) => (
-        <div
-          key={bot.eventTicker}
-          className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden transition-all"
-        >
+      <div className="space-y-3 md:max-w-4xl md:mx-auto">
+        {activeBots.map((bot) => (
+          <div
+            key={bot.eventTicker}
+            className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden transition-all"
+          >
           {/* Collapsed Header - Always Visible */}
           <div
             onClick={() => onToggleExpand(bot.eventTicker)}
@@ -450,6 +451,7 @@ export function ActiveBotsList({ activeBots, onToggleExpand, onStopBot, onTopUp,
           )}
         </div>
       ))}
+      </div>
     </div>
   );
 }

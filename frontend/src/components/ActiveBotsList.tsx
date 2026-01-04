@@ -150,10 +150,10 @@ export function ActiveBotsList({ activeBots, onToggleExpand, onStopBot, onTopUp,
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => e.stopPropagation()}
-                    className="text-xs text-slate-400 hover:text-purple-400 transition-colors inline-flex items-center gap-1"
+                    className="text-xs text-blue-400 hover:text-blue-300 transition-colors inline-flex items-center gap-1.5 font-medium"
                   >
-                    Event: {bot.eventTicker}
-                    <ExternalLink size={10} />
+                    <ExternalLink size={12} />
+                    View on Kalshi
                   </a>
                 </div>
               </div>

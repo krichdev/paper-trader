@@ -896,6 +896,54 @@ async def get_game_history(event_ticker: str):
 
 
 # ============================================================================
+# ADMIN / CLEANUP
+# ============================================================================
+
+@app.post("/api/admin/cleanup-stale-sessions")
+async def cleanup_stale_sessions():
+    """Stop logging sessions for games that are clearly finished (>6 hours old)"""
+    from datetime import timedelta
+
+    stopped_sessions = []
+    now = datetime.now(timezone.utc)
+    six_hours_ago = now - timedelta(hours=6)
+
+    # Get all active sessions
+    sessions = await db.get_active_sessions()
+
+    for session in sessions:
+        event_ticker = session['event_ticker']
+
+        # Check if game has a start date more than 6 hours ago
+        if session.get('start_date'):
+            start_date = session['start_date']
+            if isinstance(start_date, str):
+                start_date = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+
+            # If game started more than 6 hours ago, stop it
+            if start_date < six_hours_ago:
+                if event_ticker in active_loggers:
+                    await active_loggers[event_ticker].stop()
+                    del active_loggers[event_ticker]
+
+                # Stop associated bot if running
+                if event_ticker in active_live_bots:
+                    await active_live_bots[event_ticker].stop('CLEANUP_STALE_SESSION')
+                    del active_live_bots[event_ticker]
+
+                # Mark session as stopped in DB
+                await db.update_session_status(event_ticker, 'stopped')
+
+                stopped_sessions.append(event_ticker)
+
+    return {
+        "status": "cleanup_complete",
+        "stopped_sessions": stopped_sessions,
+        "count": len(stopped_sessions)
+    }
+
+
+# ============================================================================
 # HEALTH
 # ============================================================================
 

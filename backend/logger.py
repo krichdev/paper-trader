@@ -182,6 +182,10 @@ class GameLogger:
             self.is_running = False
             self.status = "complete"
             await self.db.update_session_status(self.event_ticker, "complete")
+
+            # Auto-stop attached bot if game is complete
+            if self.bot:
+                await self.bot.stop('GAME_ENDED')
     
     async def _fetch_market_data(self) -> dict:
         """Fetch current market prices"""

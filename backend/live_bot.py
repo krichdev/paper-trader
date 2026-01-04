@@ -450,7 +450,7 @@ class LivePaperBot:
             "user_balance": new_balance
         }
 
-    async def stop(self):
+    async def stop(self, reason: str = 'BOT_STOPPED'):
         """Stop the bot and close any open positions"""
         self.is_active = False
 
@@ -460,7 +460,7 @@ class LivePaperBot:
             await self._execute_exit(current_price, {
                 'tick': 0,
                 'home_team': ''
-            }, 'BOT_STOPPED')
+            }, reason)
 
         # Return remaining bankroll to user wallet
         if self.user_id and self.bankroll > 0:

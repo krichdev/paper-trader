@@ -64,6 +64,11 @@ async def lifespan(app: FastAPI):
         # Resume live bot if it was active
         if session.get('live_bot_active'):
             config = session.get('live_bot_config', {})
+            # Parse config if it's a JSON string
+            if isinstance(config, str):
+                config = json.loads(config)
+            elif config is None:
+                config = {}
             bot = LivePaperBot(
                 event_ticker=session['event_ticker'],
                 db=db,

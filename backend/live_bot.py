@@ -72,9 +72,9 @@ class LivePaperBot:
         if trades:
             # Calculate stats from existing trades
             self.total_trades = len(trades)
-            self.wins = len([t for t in trades if t.get('pnl', 0) > 0])
-            self.losses = len([t for t in trades if t.get('pnl', 0) <= 0 and t.get('exit_price')])
-            self.total_pnl = sum(t.get('pnl', 0) for t in trades if t.get('pnl'))
+            self.wins = len([t for t in trades if (t.get('pnl') or 0) > 0])
+            self.losses = len([t for t in trades if (t.get('pnl') or 0) <= 0 and t.get('exit_price')])
+            self.total_pnl = sum((t.get('pnl') or 0) for t in trades if t.get('pnl') is not None)
 
             # Check for open position
             open_trade = await self.db.get_open_trade(self.event_ticker)

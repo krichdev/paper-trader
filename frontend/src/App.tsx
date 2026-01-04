@@ -301,7 +301,7 @@ function App() {
     <div className="min-h-screen bg-slate-900">
       {/* Toast Notifications */}
       <Toaster
-        position="top-right"
+        position="top-center"
         toastOptions={{
           style: {
             background: '#1e293b',
@@ -314,6 +314,10 @@ function App() {
               secondary: '#fff',
             },
           },
+          className: 'sm:!top-4 sm:!right-4 sm:!left-auto',
+        }}
+        containerStyle={{
+          top: 60,
         }}
       />
 

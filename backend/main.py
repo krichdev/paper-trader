@@ -332,8 +332,9 @@ async def get_user_stats(user_id: int = Depends(get_current_user_id)):
 
     # Calculate statistics
     total_trades = len(all_trades)
-    completed_trades = [t for t in all_trades if t.get('exit_price') is not None]
-    open_trades = [t for t in all_trades if t.get('exit_price') is None]
+    # A trade is completed if it has an exit_time (more reliable than exit_price which could be 0)
+    completed_trades = [t for t in all_trades if t.get('exit_time') is not None]
+    open_trades = [t for t in all_trades if t.get('exit_time') is None]
 
     wins = len([t for t in completed_trades if t.get('pnl', 0) > 0])
     losses = len([t for t in completed_trades if t.get('pnl', 0) <= 0])
@@ -350,6 +351,35 @@ async def get_user_stats(user_id: int = Depends(get_current_user_id)):
 
     # Active bots
     active_bots = await db.get_user_active_bots(user_id)
+
+    # Sort completed trades by exit_time DESC for recent trades
+    completed_trades_by_exit = sorted(
+        completed_trades,
+        key=lambda t: t.get('exit_time') or t.get('entry_time'),
+        reverse=True
+    )
+
+    # Serialize datetime fields in recent trades
+    recent_trades_serialized = []
+    for trade in completed_trades_by_exit[:10]:
+        t = trade.copy()
+        if t.get('entry_time'):
+            t['entry_time'] = t['entry_time'].isoformat()
+        if t.get('exit_time'):
+            t['exit_time'] = t['exit_time'].isoformat()
+        if t.get('created_at'):
+            t['created_at'] = t['created_at'].isoformat()
+        recent_trades_serialized.append(t)
+
+    # Serialize datetime fields in open positions
+    open_positions_serialized = []
+    for trade in open_trades:
+        t = trade.copy()
+        if t.get('entry_time'):
+            t['entry_time'] = t['entry_time'].isoformat()
+        if t.get('created_at'):
+            t['created_at'] = t['created_at'].isoformat()
+        open_positions_serialized.append(t)
 
     return {
         "user": {
@@ -373,8 +403,8 @@ async def get_user_stats(user_id: int = Depends(get_current_user_id)):
             "biggest_loss": biggest_loss
         },
         "active_bots": active_bots,
-        "recent_trades": completed_trades[-10:][::-1],  # Last 10 trades, most recent first
-        "open_positions": open_trades,
+        "recent_trades": recent_trades_serialized,  # First 10 from DESC sorted list = most recent
+        "open_positions": open_positions_serialized,
         "recent_transactions": transactions
     }
 

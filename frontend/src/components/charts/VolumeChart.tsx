@@ -27,19 +27,32 @@ interface VolumeChartProps {
 }
 
 export function VolumeChart({ data, homeTeam, awayTeam, timeRange = 'all' }: VolumeChartProps) {
-  // Filter data based on time range
+  // Filter and downsample data based on time range
   const chartData = useMemo(() => {
-    if (timeRange === 'all') return data;
+    let filteredData = data;
 
-    const minutes = timeRange === '5m' ? 5 : 15;
-    const secondsToShow = minutes * 60;
-    const ticksToShow = Math.min(secondsToShow, data.length);
+    if (timeRange !== 'all') {
+      const minutes = timeRange === '5m' ? 5 : 15;
+      const secondsToShow = minutes * 60;
+      const ticksToShow = Math.min(secondsToShow, data.length);
+      filteredData = data.slice(-ticksToShow);
+    }
 
-    return data.slice(-ticksToShow);
+    // Downsample: Show every Nth point to reduce visual clutter
+    // For large datasets, only show ~100 points max (bars need more spacing)
+    const maxPoints = 100;
+    if (filteredData.length > maxPoints) {
+      const step = Math.ceil(filteredData.length / maxPoints);
+      return filteredData.filter((_, index) => index % step === 0);
+    }
+
+    return filteredData;
   }, [data, timeRange]);
 
-  // Format chart data for Recharts (group by minute)
+  // Format chart data for Recharts (aggregate by time bucket)
   const formattedData = useMemo(() => {
+    if (chartData.length === 0) return [];
+
     const grouped = new Map<string, { time: string; home_volume: number; away_volume: number }>();
 
     chartData.forEach((tick) => {
@@ -83,6 +96,8 @@ export function VolumeChart({ data, homeTeam, awayTeam, timeRange = 'all' }: Vol
             stroke="#94a3b8"
             tick={{ fill: '#94a3b8', fontSize: 12 }}
             tickLine={{ stroke: '#475569' }}
+            minTickGap={50}
+            interval="preserveStartEnd"
           />
           <YAxis
             stroke="#94a3b8"
@@ -109,12 +124,14 @@ export function VolumeChart({ data, homeTeam, awayTeam, timeRange = 'all' }: Vol
             fill="#10b981"
             name={homeTeam || 'Home'}
             radius={[4, 4, 0, 0]}
+            animationDuration={300}
           />
           <Bar
             dataKey="away_volume"
             fill="#f97316"
             name={awayTeam || 'Away'}
             radius={[4, 4, 0, 0]}
+            animationDuration={300}
           />
         </BarChart>
       </ResponsiveContainer>

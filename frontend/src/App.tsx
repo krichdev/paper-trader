@@ -246,11 +246,15 @@ function App() {
       // Step 5: Reload games to get updated state
       await loadGames();
 
-      // Step 6: Close modal
+      // Step 6: Close modal and show success toast
       handleCloseGameDetail();
+      toast.success('Bot deployed successfully!');
     } catch (e: any) {
       console.error('Failed to deploy bot:', e);
-      alert(e.message || 'Failed to deploy bot');
+      // Close modal on error too
+      handleCloseGameDetail();
+      // Show error toast instead of alert
+      toast.error(e.message || 'Failed to deploy bot');
     }
   };
 

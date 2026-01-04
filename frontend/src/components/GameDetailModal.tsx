@@ -192,7 +192,7 @@ export function GameDetailModal({ game, isOpen, onClose, onStartBot, userBalance
                 <input
                   type="number"
                   value={config.bankroll}
-                  onChange={(e) => setConfig({ ...config, bankroll: parseFloat(e.target.value) || 0 })}
+                  onChange={(e) => setConfig({ ...config, bankroll: e.target.value === '' ? 0 : parseFloat(e.target.value) })}
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg focus:border-purple-500 focus:outline-none"
                   step="50"
                   min="1"
@@ -210,7 +210,7 @@ export function GameDetailModal({ game, isOpen, onClose, onStartBot, userBalance
                 <input
                   type="number"
                   value={config.momentum_threshold}
-                  onChange={(e) => setConfig({ ...config, momentum_threshold: parseInt(e.target.value) || 0 })}
+                  onChange={(e) => setConfig({ ...config, momentum_threshold: e.target.value === '' ? 0 : parseInt(e.target.value) })}
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg focus:border-purple-500 focus:outline-none"
                   step="1"
                 />
@@ -227,7 +227,7 @@ export function GameDetailModal({ game, isOpen, onClose, onStartBot, userBalance
                 <input
                   type="number"
                   value={config.initial_stop}
-                  onChange={(e) => setConfig({ ...config, initial_stop: parseInt(e.target.value) || 0 })}
+                  onChange={(e) => setConfig({ ...config, initial_stop: e.target.value === '' ? 0 : parseInt(e.target.value) })}
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg focus:border-purple-500 focus:outline-none"
                   step="1"
                 />
@@ -244,7 +244,7 @@ export function GameDetailModal({ game, isOpen, onClose, onStartBot, userBalance
                 <input
                   type="number"
                   value={config.profit_target}
-                  onChange={(e) => setConfig({ ...config, profit_target: parseInt(e.target.value) || 0 })}
+                  onChange={(e) => setConfig({ ...config, profit_target: e.target.value === '' ? 0 : parseInt(e.target.value) })}
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg focus:border-purple-500 focus:outline-none"
                   step="1"
                 />
@@ -261,7 +261,7 @@ export function GameDetailModal({ game, isOpen, onClose, onStartBot, userBalance
                 <input
                   type="number"
                   value={config.breakeven_trigger}
-                  onChange={(e) => setConfig({ ...config, breakeven_trigger: parseInt(e.target.value) || 0 })}
+                  onChange={(e) => setConfig({ ...config, breakeven_trigger: e.target.value === '' ? 0 : parseInt(e.target.value) })}
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg focus:border-purple-500 focus:outline-none"
                   step="1"
                 />
@@ -278,7 +278,7 @@ export function GameDetailModal({ game, isOpen, onClose, onStartBot, userBalance
                 <input
                   type="number"
                   value={config.position_size_pct * 100}
-                  onChange={(e) => setConfig({ ...config, position_size_pct: parseFloat(e.target.value) / 100 || 0 })}
+                  onChange={(e) => setConfig({ ...config, position_size_pct: e.target.value === '' ? 0 : parseFloat(e.target.value) / 100 })}
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg focus:border-purple-500 focus:outline-none"
                   step="5"
                   min="1"

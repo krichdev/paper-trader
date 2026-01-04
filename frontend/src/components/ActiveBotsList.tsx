@@ -397,10 +397,10 @@ export function ActiveBotsList({ activeBots, onToggleExpand, onStopBot, onTopUp,
                     setShowConfigFor(showConfigFor === bot.eventTicker ? null : bot.eventTicker);
                     setShowTopUpFor(null);
                   }}
-                  className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium text-sm transition-colors flex items-center justify-center gap-2"
+                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium text-sm transition-colors flex items-center justify-center"
+                  title="Configure bot settings"
                 >
-                  <Settings size={16} />
-                  Configure
+                  <Settings size={18} />
                 </button>
                 <button
                   onClick={() => {

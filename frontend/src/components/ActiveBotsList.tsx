@@ -135,60 +135,112 @@ export function ActiveBotsList({ activeBots, onToggleExpand, onStopBot, onTopUp,
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         {/* Session Summary Card */}
         {sessionSummary && activeBots.length > 0 && (
-          <div className="bg-gradient-to-br from-purple-900/30 to-slate-800 rounded-xl p-4 border border-purple-500/30 md:col-span-2 lg:col-span-1">
-            <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
-              <Activity className="text-purple-400" size={16} />
-              Session Summary
-            </h3>
+          <div className="bg-gradient-to-br from-purple-900/30 to-slate-800 rounded-xl border border-purple-500/30 md:col-span-2 lg:col-span-1 md:h-[600px] flex flex-col">
+            <div className="p-4 flex-shrink-0">
+              <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                <Activity className="text-purple-400" size={16} />
+                Session Summary
+              </h3>
+            </div>
 
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">Total Value</span>
-                <span className="font-bold">${sessionSummary.totalValue.toFixed(2)}</span>
+            <div className="px-4 pb-4 flex-1 overflow-y-auto" style={{scrollbarWidth: 'thin'}}>
+              <div className="space-y-2 text-sm mb-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400">Total Value</span>
+                  <span className="font-bold">${sessionSummary.totalValue.toFixed(2)}</span>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400">Total P&L</span>
+                  <span className={`font-bold ${sessionSummary.totalPnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {sessionSummary.totalPnl >= 0 ? '+' : ''}${sessionSummary.totalPnl.toFixed(2)}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400">Return</span>
+                  <span className={`font-bold ${
+                    sessionSummary.totalStartingValue > 0
+                      ? ((sessionSummary.totalValue / sessionSummary.totalStartingValue - 1) * 100) >= 0
+                        ? 'text-green-400'
+                        : 'text-red-400'
+                      : 'text-slate-400'
+                  }`}>
+                    {sessionSummary.totalStartingValue > 0
+                      ? `${((sessionSummary.totalValue / sessionSummary.totalStartingValue - 1) * 100) >= 0 ? '+' : ''}${((sessionSummary.totalValue / sessionSummary.totalStartingValue - 1) * 100).toFixed(1)}%`
+                      : 'N/A'}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center pt-2 border-t border-slate-700">
+                  <span className="text-slate-400 flex items-center gap-1">
+                    <Award size={14} />
+                    Win Rate
+                  </span>
+                  <span className="font-bold text-blue-400">
+                    {sessionSummary.totalTrades > 0
+                      ? `${((sessionSummary.totalWins / sessionSummary.totalTrades) * 100).toFixed(1)}%`
+                      : '0.0%'}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-500">W/L</span>
+                  <span>
+                    <span className="text-green-400">{sessionSummary.totalWins}</span>
+                    <span className="text-slate-400">/</span>
+                    <span className="text-red-400">{sessionSummary.totalLosses}</span>
+                  </span>
+                </div>
               </div>
 
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">Total P&L</span>
-                <span className={`font-bold ${sessionSummary.totalPnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                  {sessionSummary.totalPnl >= 0 ? '+' : ''}${sessionSummary.totalPnl.toFixed(2)}
-                </span>
-              </div>
-
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">Return</span>
-                <span className={`font-bold ${
-                  sessionSummary.totalStartingValue > 0
-                    ? ((sessionSummary.totalValue / sessionSummary.totalStartingValue - 1) * 100) >= 0
-                      ? 'text-green-400'
-                      : 'text-red-400'
-                    : 'text-slate-400'
-                }`}>
-                  {sessionSummary.totalStartingValue > 0
-                    ? `${((sessionSummary.totalValue / sessionSummary.totalStartingValue - 1) * 100) >= 0 ? '+' : ''}${((sessionSummary.totalValue / sessionSummary.totalStartingValue - 1) * 100).toFixed(1)}%`
-                    : 'N/A'}
-                </span>
-              </div>
-
-              <div className="flex justify-between items-center pt-2 border-t border-slate-700">
-                <span className="text-slate-400 flex items-center gap-1">
-                  <Award size={14} />
-                  Win Rate
-                </span>
-                <span className="font-bold text-blue-400">
-                  {sessionSummary.totalTrades > 0
-                    ? `${((sessionSummary.totalWins / sessionSummary.totalTrades) * 100).toFixed(1)}%`
-                    : '0.0%'}
-                </span>
-              </div>
-
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-500">W/L</span>
-                <span>
-                  <span className="text-green-400">{sessionSummary.totalWins}</span>
-                  <span className="text-slate-400">/</span>
-                  <span className="text-red-400">{sessionSummary.totalLosses}</span>
-                </span>
-              </div>
+              {/* Recent Trades Section */}
+              {activeBots.flatMap(bot => bot.trades).length > 0 && (
+                <div className="pt-3 border-t border-slate-700">
+                  <div className="text-xs text-slate-400 mb-2">Recent Trades</div>
+                  <div className="space-y-2">
+                    {activeBots
+                      .flatMap(bot => bot.trades.map(trade => ({
+                        ...trade,
+                        gameTitle: bot.gameTitle
+                      })))
+                      .sort((a, b) => {
+                        const timeA = a.entry_time ? new Date(a.entry_time).getTime() : 0;
+                        const timeB = b.entry_time ? new Date(b.entry_time).getTime() : 0;
+                        return timeB - timeA;
+                      })
+                      .slice(0, 10)
+                      .map((trade, idx) => (
+                        <div
+                          key={trade.id || idx}
+                          className="p-2 bg-slate-800/50 rounded text-xs border border-slate-600"
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-2">
+                              {trade.side === 'long' ? (
+                                <TrendingUp size={12} className="text-green-400" />
+                              ) : (
+                                <TrendingDown size={12} className="text-red-400" />
+                              )}
+                              <span className="font-bold uppercase text-slate-300 text-[10px]">{trade.side}</span>
+                            </div>
+                            <div className={`font-bold ${
+                              (trade.pnl ?? 0) > 0 ? 'text-green-400' :
+                              (trade.pnl ?? 0) < 0 ? 'text-red-400' : 'text-slate-400'
+                            }`}>
+                              {(trade.pnl ?? 0) > 0 ? '+' : ''}${(trade.pnl ?? 0).toFixed(2)}
+                            </div>
+                          </div>
+                          <div className="text-[10px] text-slate-400 mb-1 truncate">{trade.gameTitle}</div>
+                          <div className="grid grid-cols-2 gap-x-2 text-[10px] text-slate-400">
+                            <div>Entry: <span className="text-slate-200">{trade.entry_price}¢</span></div>
+                            <div>Exit: <span className="text-slate-200">{trade.exit_price}¢</span></div>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -196,12 +248,12 @@ export function ActiveBotsList({ activeBots, onToggleExpand, onStopBot, onTopUp,
         {activeBots.map((bot) => (
           <div
             key={bot.eventTicker}
-            className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden transition-all"
+            className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden transition-all md:h-[600px] flex flex-col"
           >
           {/* Collapsed Header - Always Visible */}
           <div
             onClick={() => onToggleExpand(bot.eventTicker)}
-            className="p-4 cursor-pointer hover:bg-slate-750 transition-colors"
+            className="p-4 cursor-pointer hover:bg-slate-750 transition-colors flex-shrink-0"
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -250,7 +302,7 @@ export function ActiveBotsList({ activeBots, onToggleExpand, onStopBot, onTopUp,
 
           {/* Expanded Content */}
           {bot.isExpanded && (
-            <div className="px-4 pb-4 space-y-4 border-t border-slate-700 pt-4 animate-expand">
+            <div className="px-4 pb-4 space-y-4 border-t border-slate-700 pt-4 flex-1 overflow-y-auto" style={{scrollbarWidth: 'thin'}}>
               {/* Config Panel */}
               {showConfigFor === bot.eventTicker && (
                 <div className="p-4 bg-slate-700/50 rounded-lg border border-slate-600">

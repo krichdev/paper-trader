@@ -27,6 +27,17 @@ interface VolumeChartProps {
 }
 
 export function VolumeChart({ data, homeTeam, awayTeam, timeRange = 'all' }: VolumeChartProps) {
+  // Format large numbers (1000000 -> 1M, 1000 -> 1K)
+  const formatVolume = (value: number) => {
+    if (value >= 1000000) {
+      return `${(value / 1000000).toFixed(1)}M`;
+    }
+    if (value >= 1000) {
+      return `${(value / 1000).toFixed(0)}K`;
+    }
+    return value.toString();
+  };
+
   // Filter and downsample data based on time range
   const chartData = useMemo(() => {
     let filteredData = data;
@@ -103,6 +114,7 @@ export function VolumeChart({ data, homeTeam, awayTeam, timeRange = 'all' }: Vol
             stroke="#94a3b8"
             tick={{ fill: '#94a3b8', fontSize: 12 }}
             tickLine={{ stroke: '#475569' }}
+            tickFormatter={formatVolume}
             label={{ value: 'Volume', angle: -90, position: 'insideLeft', fill: '#94a3b8' }}
           />
           <Tooltip
@@ -114,6 +126,7 @@ export function VolumeChart({ data, homeTeam, awayTeam, timeRange = 'all' }: Vol
             }}
             labelStyle={{ color: '#cbd5e1' }}
             cursor={{ fill: '#334155' }}
+            formatter={(value: number | undefined) => value !== undefined ? value.toLocaleString() : ''}
           />
           <Legend
             wrapperStyle={{ paddingTop: '20px' }}

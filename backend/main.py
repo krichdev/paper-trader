@@ -619,16 +619,28 @@ async def stop_bot(event_ticker: str):
 async def get_bot_trades(event_ticker: str):
     """Get bot trades for a game"""
     trades = await db.get_bot_trades(event_ticker)
-    
+
+    # Serialize datetime fields
+    serialized_trades = []
+    for trade in trades:
+        t = trade.copy()
+        if t.get('entry_time'):
+            t['entry_time'] = t['entry_time'].isoformat()
+        if t.get('exit_time'):
+            t['exit_time'] = t['exit_time'].isoformat()
+        if t.get('created_at'):
+            t['created_at'] = t['created_at'].isoformat()
+        serialized_trades.append(t)
+
     # Calculate summary
-    total_pnl = sum(t.get('pnl', 0) for t in trades if t.get('pnl'))
-    wins = len([t for t in trades if t.get('pnl', 0) > 0])
-    losses = len([t for t in trades if t.get('pnl', 0) <= 0 and t.get('exit_price')])
-    
+    total_pnl = sum(float(t.get('pnl', 0) or 0) for t in serialized_trades if t.get('pnl') is not None)
+    wins = len([t for t in serialized_trades if t.get('pnl') is not None and float(t.get('pnl', 0)) > 0])
+    losses = len([t for t in serialized_trades if t.get('pnl') is not None and float(t.get('pnl', 0)) <= 0 and t.get('exit_price')])
+
     return {
-        "trades": trades,
+        "trades": serialized_trades,
         "summary": {
-            "total_trades": len(trades),
+            "total_trades": len(serialized_trades),
             "wins": wins,
             "losses": losses,
             "win_rate": wins / (wins + losses) * 100 if (wins + losses) > 0 else 0,

@@ -3,12 +3,13 @@ import { Link } from 'react-router-dom';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useAuth } from './contexts/AuthContext';
 import { GameCard } from './components/GameCard';
-import { LiveBotPanel } from './components/LiveBotPanel';
+import { GameDetailModal } from './components/GameDetailModal';
+import { ActiveBotsList } from './components/ActiveBotsList';
+import { SessionSummary } from './components/SessionSummary';
 import {
   fetchGames,
   fetchActiveGames,
   startLogging,
-  stopLogging,
   getBotTrades,
   startLiveBot,
   stopLiveBot,
@@ -40,11 +41,12 @@ function App() {
   const { user, logout, refreshUser } = useAuth();
   const [availableGames, setAvailableGames] = useState<Game[]>([]);
   const [activeGames, setActiveGames] = useState<Game[]>([]);
-  const [selectedGame, setSelectedGame] = useState<string | null>(null);
   const [liveBotRunning, setLiveBotRunning] = useState<Record<string, boolean>>({});
   const [liveBotWallets, setLiveBotWallets] = useState<Record<string, any>>({});
   const [liveBotTrades, setLiveBotTrades] = useState<Record<string, any[]>>({});
-  const [liveBotLowBalance, setLiveBotLowBalance] = useState<Record<string, boolean>>({});
+  const [activeBotsExpanded, setActiveBotsExpanded] = useState<Record<string, boolean>>({});
+  const [gameDetailModalOpen, setGameDetailModalOpen] = useState(false);
+  const [selectedGameForModal, setSelectedGameForModal] = useState<Game | null>(null);
   const [loading, setLoading] = useState(true);
   const [leagueFilter, setLeagueFilter] = useState<string>('all');
   const [searchText, setSearchText] = useState<string>('');
@@ -105,17 +107,7 @@ function App() {
       if (lastMessage.type === 'live_bot_exit') {
         refreshUser();
       }
-    } else if (lastMessage.type === 'live_bot_low_balance') {
-      const ticker = lastMessage.event_ticker;
-      if (ticker) {
-        setLiveBotLowBalance(prev => ({ ...prev, [ticker]: true }));
-      }
     } else if (lastMessage.type === 'live_bot_topup') {
-      const ticker = lastMessage.event_ticker;
-      if (ticker) {
-        // Clear low balance warning after top-up
-        setLiveBotLowBalance(prev => ({ ...prev, [ticker]: false }));
-      }
       refreshUser();
     } else if (lastMessage.type === 'init') {
       if (lastMessage.data?.active_games) {
@@ -164,49 +156,6 @@ function App() {
     }
   };
 
-  const handleStartLogging = async (eventTicker: string, milestoneId: string) => {
-    try {
-      await startLogging(eventTicker, milestoneId);
-
-      // Optimistically add game to active games immediately
-      const game = availableGames.find(g => g.event_ticker === eventTicker);
-      if (game) {
-        setActiveGames(prev => [...prev, { ...game, tick_count: 0 }]);
-      }
-
-      // Refresh from server to get accurate state
-      await loadGames();
-    } catch (e) {
-      console.error('Failed to start logging:', e);
-    }
-  };
-
-  const handleStopLogging = async (eventTicker: string) => {
-    try {
-      await stopLogging(eventTicker);
-
-      // Optimistically remove game from active games immediately
-      setActiveGames(prev => prev.filter(g => g.event_ticker !== eventTicker));
-
-      // Refresh from server to get accurate state
-      await loadGames();
-    } catch (e) {
-      console.error('Failed to stop logging:', e);
-    }
-  };
-
-  const handleStartLiveBot = async (eventTicker: string, config: any) => {
-    try {
-      await startLiveBot(eventTicker, config);
-      setLiveBotRunning(prev => ({ ...prev, [eventTicker]: true }));
-      loadLiveBotTrades(eventTicker);
-      await refreshUser(); // Refresh wallet balance after starting bot
-    } catch (e: any) {
-      console.error('Failed to start live bot:', e);
-      alert(e.message || 'Failed to start live bot');
-    }
-  };
-
   const handleStopLiveBot = async (eventTicker: string) => {
     try {
       await stopLiveBot(eventTicker);
@@ -228,8 +177,6 @@ function App() {
   const handleTopUpLiveBot = async (eventTicker: string, amount: number) => {
     try {
       await topUpLiveBot(eventTicker, amount);
-      // Clear low balance warning
-      setLiveBotLowBalance(prev => ({ ...prev, [eventTicker]: false }));
       await refreshUser(); // Refresh wallet balance after top-up
     } catch (e: any) {
       console.error('Failed to top up live bot:', e);
@@ -237,7 +184,46 @@ function App() {
     }
   };
 
-  const isSelectedActive = activeGames.some(g => g.event_ticker === selectedGame);
+  const handleOpenGameDetail = (game: Game) => {
+    setSelectedGameForModal(game);
+    setGameDetailModalOpen(true);
+  };
+
+  const handleCloseGameDetail = () => {
+    setGameDetailModalOpen(false);
+    setSelectedGameForModal(null);
+  };
+
+  const handleDeployBot = async (eventTicker: string, milestoneId: string, config: any) => {
+    try {
+      // Step 1: Auto-start logging (hidden from user)
+      await startLogging(eventTicker, milestoneId);
+
+      // Step 2: Wait briefly for logging to initialize
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Step 3: Start the bot
+      await startLiveBot(eventTicker, config);
+
+      // Step 4: Update local state
+      setLiveBotRunning(prev => ({ ...prev, [eventTicker]: true }));
+      loadLiveBotTrades(eventTicker);
+      await refreshUser(); // Refresh wallet balance after starting bot
+
+      // Step 5: Reload games to get updated state
+      await loadGames();
+
+      // Step 6: Close modal
+      handleCloseGameDetail();
+    } catch (e: any) {
+      console.error('Failed to deploy bot:', e);
+      alert(e.message || 'Failed to deploy bot');
+    }
+  };
+
+  const handleToggleBotExpand = (eventTicker: string) => {
+    setActiveBotsExpanded(prev => ({ ...prev, [eventTicker]: !prev[eventTicker] }));
+  };
 
   // Filter games by league and search text, excluding completed/past games
   const filteredAvailableGames = availableGames.filter(game => {
@@ -354,90 +340,41 @@ function App() {
       </header>
 
       <main className="max-w-7xl mx-auto p-2 sm:p-4">
-        {/* Mobile: vertical stack, Desktop: 2-column grid */}
-        <div className="flex flex-col lg:grid lg:grid-cols-3 gap-4 lg:gap-6">
+        <div className="space-y-6">
+          {/* Active Bots List */}
+          <ActiveBotsList
+            activeBots={Object.keys(liveBotRunning)
+              .filter(ticker => liveBotRunning[ticker])
+              .map(ticker => {
+                const game = activeGames.find(g => g.event_ticker === ticker) || availableGames.find(g => g.event_ticker === ticker);
+                return {
+                  eventTicker: ticker,
+                  gameTitle: game?.title || (game?.home_team && game?.away_team ? `${game.away_team} @ ${game.home_team}` : ticker),
+                  wallet: liveBotWallets[ticker] || null,
+                  trades: liveBotTrades[ticker] || [],
+                  isExpanded: activeBotsExpanded[ticker] || false
+                };
+              })}
+            onToggleExpand={handleToggleBotExpand}
+            onStopBot={handleStopLiveBot}
+            onTopUp={(ticker) => handleTopUpLiveBot(ticker, 100)}
+            onUpdateConfig={handleUpdateLiveBotConfig}
+          />
 
-          {/* Live Bot Panel & Stats - First on mobile, right sidebar on desktop */}
-          <div className="space-y-4 lg:order-2 lg:col-span-1">
-            {/* Live Paper Bot Panel */}
-            {selectedGame && isSelectedActive ? (() => {
-              const selectedGameData = activeGames.find(g => g.event_ticker === selectedGame);
-              return (
-                <LiveBotPanel
-                  eventTicker={selectedGame}
-                  homeTeam={selectedGameData?.home_team}
-                  awayTeam={selectedGameData?.away_team}
-                  tickCount={selectedGameData?.tick_count}
-                  isRunning={liveBotRunning[selectedGame] || false}
-                  wallet={liveBotWallets[selectedGame] || null}
-                  trades={liveBotTrades[selectedGame] || []}
-                  lowBalance={liveBotLowBalance[selectedGame] || false}
-                  onStart={(config) => handleStartLiveBot(selectedGame, config)}
-                  onStop={() => handleStopLiveBot(selectedGame)}
-                  onUpdateConfig={(config) => handleUpdateLiveBotConfig(selectedGame, config)}
-                  onTopUp={(amount) => handleTopUpLiveBot(selectedGame, amount)}
-                />
-              );
-            })() : (
-              <div className="bg-slate-800 rounded-xl p-4 sm:p-6 border-2 border-purple-500/50 text-center">
-                <div className="text-slate-400 mb-2 text-3xl sm:text-4xl">💰</div>
-                <h3 className="font-bold mb-2 text-sm sm:text-base">Live Paper Bot</h3>
-                <p className="text-xs sm:text-sm text-slate-400">
-                  {selectedGame
-                    ? 'Start logging this game to enable live trading'
-                    : 'Select an active game to start trading'}
-                </p>
-              </div>
-            )}
+          {/* Session Summary */}
+          <SessionSummary
+            activeBotCount={Object.values(liveBotRunning).filter(Boolean).length}
+            totalPnl={Object.values(liveBotWallets).reduce((sum, wallet) => sum + (wallet?.total_pnl || 0), 0)}
+            totalValue={Object.values(liveBotWallets).reduce((sum, wallet) => sum + (wallet?.total_value || 0), 0)}
+            totalStartingValue={Object.values(liveBotWallets).reduce((sum, wallet) => sum + (wallet?.starting_bankroll || 0), 0)}
+            totalTrades={Object.values(liveBotWallets).reduce((sum, wallet) => sum + (wallet?.stats?.total_trades || 0), 0)}
+            totalWins={Object.values(liveBotWallets).reduce((sum, wallet) => sum + (wallet?.stats?.wins || 0), 0)}
+            totalLosses={Object.values(liveBotWallets).reduce((sum, wallet) => sum + (wallet?.stats?.losses || 0), 0)}
+          />
 
-            {/* Session Stats */}
-            <div className="bg-slate-800 rounded-xl p-3 sm:p-4 border-2 border-slate-700">
-              <h3 className="font-bold mb-2 sm:mb-3 text-sm sm:text-base">📊 Session Stats</h3>
-              <div className="space-y-2 text-xs sm:text-sm">
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Active Games</span>
-                  <span className="font-bold text-green-400">{activeGames.length}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Total Ticks</span>
-                  <span className="font-bold">
-                    {activeGames.reduce((sum, g) => sum + (g.tick_count || 0), 0)}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Live Bots</span>
-                  <span className="font-bold text-purple-400">
-                    {Object.values(liveBotRunning).filter(Boolean).length}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Games List - Second on mobile, left side on desktop */}
-          <div className="space-y-4 lg:order-1 lg:col-span-2">
-            {/* Active Games Section */}
-            {activeGames.length > 0 && (
-              <div>
-                <h2 className="text-base sm:text-lg font-bold mb-3 text-green-400">🟢 Active Logging</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                  {activeGames.map(game => (
-                    <GameCard
-                      key={game.event_ticker}
-                      game={game}
-                      isActive={true}
-                      isSelected={selectedGame === game.event_ticker}
-                      onStop={handleStopLogging}
-                      onSelect={setSelectedGame}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Available Games Section */}
-            <div>
-              <h2 className="text-base sm:text-lg font-bold mb-3">📅 Available Games</h2>
+          {/* Available Games Section */}
+          <div>
+            <h2 className="text-base sm:text-lg font-bold mb-3">📅 Available Games</h2>
 
               {/* Filters & Search */}
               <div className="mb-4 space-y-2 sm:space-y-3">
@@ -482,23 +419,27 @@ function App() {
                   </p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                  {filteredAvailableGames
-                    .filter(g => !activeGames.find(ag => ag.event_ticker === g.event_ticker))
-                    .map(game => (
-                      <GameCard
-                        key={game.event_ticker}
-                        game={game}
-                        isActive={false}
-                        onStart={handleStartLogging}
-                        onSelect={setSelectedGame}
-                      />
-                    ))}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                  {filteredAvailableGames.map(game => (
+                    <GameCard
+                      key={game.event_ticker}
+                      game={game}
+                      hasBotRunning={liveBotRunning[game.event_ticker] || false}
+                      onClick={() => handleOpenGameDetail(game)}
+                    />
+                  ))}
                 </div>
               )}
             </div>
-          </div>
 
+          {/* Game Detail Modal */}
+          <GameDetailModal
+            game={selectedGameForModal}
+            isOpen={gameDetailModalOpen}
+            onClose={handleCloseGameDetail}
+            onStartBot={handleDeployBot}
+            userBalance={user?.current_balance || 0}
+          />
         </div>
       </main>
     </div>

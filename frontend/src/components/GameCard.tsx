@@ -1,5 +1,4 @@
-import { Play, Square, Download, Clock } from 'lucide-react';
-import { getExportUrl } from '../lib/api';
+import { Rocket, Clock } from 'lucide-react';
 
 interface GameCardProps {
   game: {
@@ -20,15 +19,11 @@ interface GameCardProps {
     start_date?: string;
     league?: string;
   };
-  isActive?: boolean;
-  isSelected?: boolean;
-  onStart?: (eventTicker: string, milestoneId: string) => void;
-  onStop?: (eventTicker: string) => void;
-  onSelect?: (eventTicker: string) => void;
+  hasBotRunning?: boolean;
+  onClick?: () => void;
 }
 
-export function GameCard({ game, isActive, isSelected, onStart, onStop, onSelect }: GameCardProps) {
-  const isLogging = isActive && game.tick_count !== undefined;
+export function GameCard({ game, hasBotRunning, onClick }: GameCardProps) {
 
   // Check if game hasn't started yet (within 15 minutes before start time)
   const gameStartTime = game.start_date ? new Date(game.start_date) : null;
@@ -38,11 +33,8 @@ export function GameCard({ game, isActive, isSelected, onStart, onStop, onSelect
 
   return (
     <div
-      className={`bg-slate-800 rounded-xl p-4 border-2 transition-all cursor-pointer hover:bg-slate-750 ${
-        isSelected ? 'border-purple-500 shadow-lg shadow-purple-500/20' :
-        isLogging ? 'border-green-500' : 'border-slate-700'
-      }`}
-      onClick={() => onSelect?.(game.event_ticker)}
+      className="bg-slate-800 rounded-xl p-4 border-2 border-slate-700 transition-all cursor-pointer hover:border-purple-500/50 hover:shadow-lg hover:shadow-purple-500/10"
+      onClick={onClick}
     >
       {/* Header */}
       <div className="flex justify-between items-start mb-3">
@@ -51,103 +43,64 @@ export function GameCard({ game, isActive, isSelected, onStart, onStop, onSelect
             {game.title || `${game.away_team} @ ${game.home_team}`}
           </h3>
           {game.league && (
-            <span className="text-xs bg-slate-700 px-2 py-0.5 rounded">
+            <span className="text-xs bg-slate-700 px-2 py-0.5 rounded mt-1 inline-block">
               {game.league}
             </span>
           )}
         </div>
         <div className={`px-2 py-1 rounded text-xs font-bold ${
-          isLogging ? 'bg-green-500/20 text-green-400' : 
           game.status === 'scheduled' ? 'bg-slate-600 text-slate-300' :
+          game.status === 'in_progress' || game.status === 'live' ? 'bg-green-500/20 text-green-400' :
           'bg-yellow-500/20 text-yellow-400'
         }`}>
-          {isLogging ? `LOGGING (${game.tick_count})` : game.status?.toUpperCase()}
+          {game.status?.toUpperCase()}
         </div>
       </div>
 
-      {/* Prices */}
-      {isLogging && (
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <div className="text-center">
-            <div className="text-slate-400 text-sm">{game.home_team}</div>
-            <div className="text-3xl font-bold text-emerald-400">{game.home_price}¢</div>
-          </div>
-          <div className="text-center">
-            <div className="text-slate-400 text-sm">{game.away_team}</div>
-            <div className="text-3xl font-bold text-orange-400">{game.away_price}¢</div>
-          </div>
-        </div>
-      )}
-
-      {/* Score & Game State */}
-      {isLogging && game.quarter !== undefined && game.quarter > 0 && (
-        <div className="bg-slate-900 rounded-lg p-3 mb-3">
-          <div className="flex justify-between items-center">
-            <div className="text-2xl font-mono">
-              {game.home_score} - {game.away_score}
-            </div>
-            <div className="text-right">
-              <div className="text-lg font-bold">Q{game.quarter}</div>
-              <div className="text-slate-400">{game.clock}</div>
-            </div>
-          </div>
-          {game.last_play && (
-            <div className="mt-2 text-sm text-slate-400 truncate">
-              📢 {game.last_play}
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Start time for scheduled games */}
-      {!isLogging && game.start_date && (
+      {game.start_date && (
         <div className="text-slate-400 text-sm mb-3">
           {new Date(game.start_date).toLocaleString()}
         </div>
       )}
 
-      {/* Actions */}
-      <div onClick={e => e.stopPropagation()}>
-        {!isLogging ? (
-          <>
-            <button
-              onClick={() => onStart?.(game.event_ticker, game.milestone_id || '')}
-              disabled={hasNotStarted}
-              className={`w-full py-2 px-4 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors ${
-                hasNotStarted
-                  ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
-                  : 'bg-green-600 hover:bg-green-500 text-white'
-              }`}
-              title={hasNotStarted ? 'Game starts in more than 15 minutes' : ''}
-            >
-              {hasNotStarted ? <Clock size={18} /> : <Play size={18} />}
-              {hasNotStarted ? 'Not Started' : 'Start Logging'}
-            </button>
-            {hasNotStarted && gameStartTime && (
-              <div className="text-xs text-slate-400 mt-2 flex items-center justify-center gap-1">
-                <Clock size={12} />
-                Available {Math.ceil((fifteenMinutesBeforeStart!.getTime() - now.getTime()) / 60000)} min before start
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="flex gap-2">
-            <button
-              onClick={() => onStop?.(game.event_ticker)}
-              className="flex-1 bg-red-600 hover:bg-red-500 text-white py-2 px-4 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors"
-            >
-              <Square size={18} />
-              Stop
-            </button>
-            <a
-              href={getExportUrl(game.event_ticker)}
-              className="bg-blue-600 hover:bg-blue-500 text-white py-2 px-4 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors"
-            >
-              <Download size={18} />
-            </a>
+      {/* Deploy Button - Only show if no bot is running */}
+      {!hasBotRunning && (
+        <div onClick={e => e.stopPropagation()}>
+          <button
+            onClick={onClick}
+            disabled={hasNotStarted}
+            className={`w-full py-2 px-4 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors ${
+              hasNotStarted
+                ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
+                : 'bg-purple-600 hover:bg-purple-700 text-white'
+            }`}
+            title={hasNotStarted ? 'Game starts in more than 15 minutes' : 'Deploy a bot to this game'}
+          >
+            {hasNotStarted ? <Clock size={18} /> : <Rocket size={18} />}
+            {hasNotStarted ? 'Not Started' : 'Deploy Bot'}
+          </button>
+          {hasNotStarted && gameStartTime && (
+            <div className="text-xs text-slate-400 mt-2 flex items-center justify-center gap-1">
+              <Clock size={12} />
+              Available {Math.ceil((fifteenMinutesBeforeStart!.getTime() - now.getTime()) / 60000)} min before start
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Bot Running Indicator */}
+      {hasBotRunning && (
+        <div className="p-3 bg-purple-900/30 border border-purple-500/50 rounded-lg text-center">
+          <div className="flex items-center justify-center gap-2 text-sm font-medium text-purple-400">
+            <div className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
+            </div>
+            Bot Active - View in Active Bots above
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

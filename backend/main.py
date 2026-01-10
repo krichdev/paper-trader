@@ -1045,6 +1045,35 @@ async def cleanup_stale_sessions():
     }
 
 
+@app.post("/api/admin/fix-wallet-double-counting")
+async def fix_wallet_double_counting():
+    """
+    Fix wallet balances that were incorrectly increased by the double-counting bug.
+
+    This endpoint corrects balances by:
+    1. Finding all 'trade_exit' wallet transactions (which shouldn't exist)
+    2. Subtracting those amounts from user balances
+    3. Deleting the incorrect transactions
+    4. Adding a 'balance_correction' transaction for audit trail
+
+    Returns a summary of corrections made.
+    """
+    print("[WALLET_FIX] Starting wallet double-counting cleanup...")
+
+    result = await db.cleanup_wallet_double_counting()
+
+    print(f"[WALLET_FIX] Fixed {result['users_affected']} users, removed {result['transactions_removed']} transactions")
+    for correction in result['corrections']:
+        print(f"[WALLET_FIX] User {correction['username']}: ${correction['old_balance']:.2f} -> ${correction['corrected_balance']:.2f} (removed ${correction['amount_removed']:.2f})")
+
+    return {
+        "status": "success",
+        "users_affected": result['users_affected'],
+        "transactions_removed": result['transactions_removed'],
+        "corrections": result['corrections']
+    }
+
+
 # ============================================================================
 # HEALTH
 # ============================================================================

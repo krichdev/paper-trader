@@ -384,6 +384,69 @@ class Database:
                     WHERE id = $1
                 """, user_id)
 
+    async def cleanup_wallet_double_counting(self) -> Dict:
+        """
+        Fix wallet balances that were incorrectly increased by trade_exit transactions.
+        This removes the double-counting bug where proceeds were added to both bot bankroll
+        AND user wallet on each trade exit.
+
+        Returns a summary of users affected and amounts corrected.
+        """
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+                # Get all trade_exit transactions (these should not have been added to wallet)
+                rows = await conn.fetch("""
+                    SELECT user_id, SUM(amount) as total_incorrect_amount
+                    FROM wallet_transactions
+                    WHERE type = 'trade_exit'
+                    GROUP BY user_id
+                """)
+
+                corrections = []
+                for row in rows:
+                    user_id = row['user_id']
+                    incorrect_amount = row['total_incorrect_amount']
+
+                    # Get current user balance
+                    user = await conn.fetchrow("""
+                        SELECT current_balance, username FROM users WHERE id = $1
+                    """, user_id)
+
+                    if user:
+                        old_balance = user['current_balance']
+                        corrected_balance = old_balance - incorrect_amount
+
+                        # Update user balance
+                        await conn.execute("""
+                            UPDATE users SET current_balance = $1 WHERE id = $2
+                        """, corrected_balance, user_id)
+
+                        # Add a correction transaction for audit trail
+                        await conn.execute("""
+                            INSERT INTO wallet_transactions (user_id, amount, type, balance_after)
+                            VALUES ($1, $2, 'balance_correction', $3)
+                        """, user_id, -incorrect_amount, corrected_balance)
+
+                        corrections.append({
+                            'user_id': user_id,
+                            'username': user['username'],
+                            'old_balance': old_balance,
+                            'corrected_balance': corrected_balance,
+                            'amount_removed': incorrect_amount
+                        })
+
+                # Delete the incorrect trade_exit transactions
+                deleted_count = await conn.fetchval("""
+                    DELETE FROM wallet_transactions WHERE type = 'trade_exit'
+                    RETURNING COUNT(*)
+                """)
+
+                return {
+                    'users_affected': len(corrections),
+                    'transactions_removed': deleted_count,
+                    'corrections': corrections
+                }
+
     async def get_leaderboard(self, limit: int = 50) -> List[Dict]:
         """Get leaderboard of top users by total P&L"""
         async with self.pool.acquire() as conn:

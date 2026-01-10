@@ -305,21 +305,6 @@ class LivePaperBot:
         # Update bankroll in database
         await self.db.update_live_bot_bankroll(self.event_ticker, self.bankroll)
 
-        # Update user wallet (return funds + P&L)
-        if self.user_id:
-            user = await self.db.get_user_by_id(self.user_id)
-            if user:
-                new_balance = user['current_balance'] + proceeds
-                await self.db.update_user_balance(self.user_id, new_balance, pnl)
-                await self.db.add_wallet_transaction(
-                    user_id=self.user_id,
-                    amount=proceeds,
-                    tx_type='trade_exit',
-                    balance_after=new_balance,
-                    event_ticker=self.event_ticker,
-                    trade_id=pos['trade_id']
-                )
-
         # Update database
         await self.db.update_trade_exit(pos['trade_id'], {
             'exit_price': price,

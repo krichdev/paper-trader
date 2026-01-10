@@ -355,7 +355,7 @@ export function ActiveBotsList({ activeBots, onToggleExpand, onStopBot, onTopUp,
                       <div>
                         <label className="block text-slate-400 mb-1">Momentum Threshold (¢)</label>
                         <input
-                          type="number"
+                          type="text" inputMode="numeric"
                           value={currentConfig.momentum_threshold}
                           onChange={(e) => updateBotConfig(bot.eventTicker, { momentum_threshold: parseInt(e.target.value) || 0 })}
                           className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded"
@@ -364,7 +364,7 @@ export function ActiveBotsList({ activeBots, onToggleExpand, onStopBot, onTopUp,
                       <div>
                         <label className="block text-slate-400 mb-1">Initial Stop (¢)</label>
                         <input
-                          type="number"
+                          type="text" inputMode="numeric"
                           value={currentConfig.initial_stop}
                           onChange={(e) => updateBotConfig(bot.eventTicker, { initial_stop: parseInt(e.target.value) || 0 })}
                           className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded"
@@ -373,7 +373,7 @@ export function ActiveBotsList({ activeBots, onToggleExpand, onStopBot, onTopUp,
                       <div>
                         <label className="block text-slate-400 mb-1">Profit Target (¢)</label>
                         <input
-                          type="number"
+                          type="text" inputMode="numeric"
                           value={currentConfig.profit_target}
                           onChange={(e) => updateBotConfig(bot.eventTicker, { profit_target: parseInt(e.target.value) || 0 })}
                           className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded"
@@ -382,7 +382,7 @@ export function ActiveBotsList({ activeBots, onToggleExpand, onStopBot, onTopUp,
                       <div>
                         <label className="block text-slate-400 mb-1">Breakeven Trigger (¢)</label>
                         <input
-                          type="number"
+                          type="text" inputMode="numeric"
                           value={currentConfig.breakeven_trigger}
                           onChange={(e) => updateBotConfig(bot.eventTicker, { breakeven_trigger: parseInt(e.target.value) || 0 })}
                           className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded"
@@ -391,7 +391,7 @@ export function ActiveBotsList({ activeBots, onToggleExpand, onStopBot, onTopUp,
                       <div>
                         <label className="block text-slate-400 mb-1">Position Size (%)</label>
                         <input
-                          type="number"
+                          type="text" inputMode="numeric"
                           value={currentConfig.position_size_pct * 100}
                           onChange={(e) => updateBotConfig(bot.eventTicker, { position_size_pct: parseFloat(e.target.value) / 100 || 0 })}
                           className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded"
@@ -425,7 +425,7 @@ export function ActiveBotsList({ activeBots, onToggleExpand, onStopBot, onTopUp,
                     <div>
                       <label className="block text-slate-400 text-xs mb-1">Amount to Add ($)</label>
                       <input
-                        type="number"
+                        type="text" inputMode="numeric"
                         value={topUpAmount}
                         onChange={(e) => setTopUpAmount(parseFloat(e.target.value) || 0)}
                         className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-sm"

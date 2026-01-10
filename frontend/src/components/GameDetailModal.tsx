@@ -38,25 +38,26 @@ interface GameDetailModalProps {
 }
 
 export function GameDetailModal({ game, isOpen, onClose, onStartBot, userBalance }: GameDetailModalProps) {
-  const [config, setConfig] = useState<BotConfig>({
-    bankroll: 500,
-    momentum_threshold: 8,
-    initial_stop: 8,
-    profit_target: 15,
-    breakeven_trigger: 5,
-    position_size_pct: 0.5
+  // Use string state for inputs to avoid formatting issues
+  const [inputValues, setInputValues] = useState({
+    bankroll: '500',
+    momentum_threshold: '8',
+    initial_stop: '8',
+    profit_target: '15',
+    breakeven_trigger: '5',
+    position_size_pct: '50'
   });
 
-  // Reset config when modal closes
+  // Reset input values when modal closes
   useEffect(() => {
     if (!isOpen) {
-      setConfig({
-        bankroll: 500,
-        momentum_threshold: 8,
-        initial_stop: 8,
-        profit_target: 15,
-        breakeven_trigger: 5,
-        position_size_pct: 0.5
+      setInputValues({
+        bankroll: '500',
+        momentum_threshold: '8',
+        initial_stop: '8',
+        profit_target: '15',
+        breakeven_trigger: '5',
+        position_size_pct: '50'
       });
     }
   }, [isOpen]);
@@ -64,6 +65,16 @@ export function GameDetailModal({ game, isOpen, onClose, onStartBot, userBalance
   if (!isOpen || !game) return null;
 
   const handleStartBot = () => {
+    // Parse input values to config
+    const config: BotConfig = {
+      bankroll: parseFloat(inputValues.bankroll) || 0,
+      momentum_threshold: parseInt(inputValues.momentum_threshold, 10) || 0,
+      initial_stop: parseInt(inputValues.initial_stop, 10) || 0,
+      profit_target: parseInt(inputValues.profit_target, 10) || 0,
+      breakeven_trigger: parseInt(inputValues.breakeven_trigger, 10) || 0,
+      position_size_pct: (parseFloat(inputValues.position_size_pct) || 0) / 100
+    };
+
     if (config.bankroll > userBalance) {
       alert(`Insufficient funds. Available balance: $${userBalance.toFixed(2)}`);
       return;
@@ -190,12 +201,11 @@ export function GameDetailModal({ game, isOpen, onClose, onStartBot, userBalance
                   </span>
                 </label>
                 <input
-                  type="number"
-                  value={config.bankroll}
-                  onChange={(e) => setConfig({ ...config, bankroll: e.target.value === '' ? 0 : parseFloat(e.target.value) })}
+                  type="text"
+                  inputMode="numeric"
+                  value={inputValues.bankroll}
+                  onChange={(e) => setInputValues({ ...inputValues, bankroll: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg focus:border-purple-500 focus:outline-none"
-                  step="50"
-                  min="1"
                 />
                 <p className="text-xs text-slate-500 mt-1">
                   Starting funds for this bot (cannot be changed after start)
@@ -208,11 +218,11 @@ export function GameDetailModal({ game, isOpen, onClose, onStartBot, userBalance
                   Momentum Threshold (¢)
                 </label>
                 <input
-                  type="number"
-                  value={config.momentum_threshold}
-                  onChange={(e) => setConfig({ ...config, momentum_threshold: e.target.value === '' ? 0 : parseInt(e.target.value) })}
+                  type="text"
+                  inputMode="numeric"
+                  value={inputValues.momentum_threshold}
+                  onChange={(e) => setInputValues({ ...inputValues, momentum_threshold: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg focus:border-purple-500 focus:outline-none"
-                  step="1"
                 />
                 <p className="text-xs text-slate-500 mt-1">
                   Price movement needed to enter a trade
@@ -225,11 +235,11 @@ export function GameDetailModal({ game, isOpen, onClose, onStartBot, userBalance
                   Initial Stop (¢)
                 </label>
                 <input
-                  type="number"
-                  value={config.initial_stop}
-                  onChange={(e) => setConfig({ ...config, initial_stop: e.target.value === '' ? 0 : parseInt(e.target.value) })}
+                  type="text"
+                  inputMode="numeric"
+                  value={inputValues.initial_stop}
+                  onChange={(e) => setInputValues({ ...inputValues, initial_stop: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg focus:border-purple-500 focus:outline-none"
-                  step="1"
                 />
                 <p className="text-xs text-slate-500 mt-1">
                   Maximum loss before auto-exit
@@ -242,11 +252,11 @@ export function GameDetailModal({ game, isOpen, onClose, onStartBot, userBalance
                   Profit Target (¢)
                 </label>
                 <input
-                  type="number"
-                  value={config.profit_target}
-                  onChange={(e) => setConfig({ ...config, profit_target: e.target.value === '' ? 0 : parseInt(e.target.value) })}
+                  type="text"
+                  inputMode="numeric"
+                  value={inputValues.profit_target}
+                  onChange={(e) => setInputValues({ ...inputValues, profit_target: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg focus:border-purple-500 focus:outline-none"
-                  step="1"
                 />
                 <p className="text-xs text-slate-500 mt-1">
                   Price gain to take profits
@@ -259,11 +269,11 @@ export function GameDetailModal({ game, isOpen, onClose, onStartBot, userBalance
                   Breakeven Trigger (¢)
                 </label>
                 <input
-                  type="number"
-                  value={config.breakeven_trigger}
-                  onChange={(e) => setConfig({ ...config, breakeven_trigger: e.target.value === '' ? 0 : parseInt(e.target.value) })}
+                  type="text"
+                  inputMode="numeric"
+                  value={inputValues.breakeven_trigger}
+                  onChange={(e) => setInputValues({ ...inputValues, breakeven_trigger: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg focus:border-purple-500 focus:outline-none"
-                  step="1"
                 />
                 <p className="text-xs text-slate-500 mt-1">
                   Move stop to breakeven after this gain
@@ -276,13 +286,11 @@ export function GameDetailModal({ game, isOpen, onClose, onStartBot, userBalance
                   Position Size (%)
                 </label>
                 <input
-                  type="number"
-                  value={config.position_size_pct * 100}
-                  onChange={(e) => setConfig({ ...config, position_size_pct: e.target.value === '' ? 0 : parseFloat(e.target.value) / 100 })}
+                  type="text"
+                  inputMode="numeric"
+                  value={inputValues.position_size_pct}
+                  onChange={(e) => setInputValues({ ...inputValues, position_size_pct: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg focus:border-purple-500 focus:outline-none"
-                  step="5"
-                  min="1"
-                  max="100"
                 />
                 <p className="text-xs text-slate-500 mt-1">
                   Percentage of bankroll to risk per trade

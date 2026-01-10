@@ -207,7 +207,7 @@ export function LiveBotPanel({
             <div>
               <label className="block text-slate-400 text-xs mb-1">Amount to Add ($)</label>
               <input
-                type="number"
+                type="text" inputMode="numeric"
                 value={topUpAmount}
                 onChange={(e) => setTopUpAmount(parseFloat(e.target.value) || 0)}
                 className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-sm"
@@ -243,7 +243,7 @@ export function LiveBotPanel({
               <div>
                 <label className="block text-slate-400 mb-1">Bankroll ($)</label>
                 <input
-                  type="number"
+                  type="text" inputMode="numeric"
                   value={config.bankroll}
                   onChange={(e) => setConfig({ ...config, bankroll: parseFloat(e.target.value) })}
                   className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded"
@@ -255,7 +255,7 @@ export function LiveBotPanel({
             <div>
               <label className="block text-slate-400 mb-1">Momentum Threshold (¢)</label>
               <input
-                type="number"
+                type="text" inputMode="numeric"
                 value={config.momentum_threshold}
                 onChange={(e) => setConfig({ ...config, momentum_threshold: parseInt(e.target.value) })}
                 className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded"
@@ -264,7 +264,7 @@ export function LiveBotPanel({
             <div>
               <label className="block text-slate-400 mb-1">Initial Stop (¢)</label>
               <input
-                type="number"
+                type="text" inputMode="numeric"
                 value={config.initial_stop}
                 onChange={(e) => setConfig({ ...config, initial_stop: parseInt(e.target.value) })}
                 className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded"
@@ -273,7 +273,7 @@ export function LiveBotPanel({
             <div>
               <label className="block text-slate-400 mb-1">Profit Target (¢)</label>
               <input
-                type="number"
+                type="text" inputMode="numeric"
                 value={config.profit_target}
                 onChange={(e) => setConfig({ ...config, profit_target: parseInt(e.target.value) })}
                 className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded"
@@ -282,7 +282,7 @@ export function LiveBotPanel({
             <div>
               <label className="block text-slate-400 mb-1">Breakeven Trigger (¢)</label>
               <input
-                type="number"
+                type="text" inputMode="numeric"
                 value={config.breakeven_trigger}
                 onChange={(e) => setConfig({ ...config, breakeven_trigger: parseInt(e.target.value) })}
                 className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded"
@@ -291,7 +291,7 @@ export function LiveBotPanel({
             <div>
               <label className="block text-slate-400 mb-1">Position Size (%)</label>
               <input
-                type="number"
+                type="text" inputMode="numeric"
                 value={config.position_size_pct * 100}
                 onChange={(e) => setConfig({ ...config, position_size_pct: parseFloat(e.target.value) / 100 })}
                 className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded"

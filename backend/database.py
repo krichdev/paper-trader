@@ -293,7 +293,11 @@ class Database:
                 SELECT default_bot_config FROM users WHERE id = $1
             """, user_id)
             if row and row['default_bot_config']:
-                return dict(row['default_bot_config'])
+                config = row['default_bot_config']
+                # Handle both string (old format) and dict (new format)
+                if isinstance(config, str):
+                    return json.loads(config)
+                return dict(config)
             # Return system defaults if not set
             return {
                 "momentum_threshold": 8,
@@ -306,8 +310,9 @@ class Database:
     async def update_user_default_bot_config(self, user_id: int, config: Dict) -> None:
         """Update user's default bot configuration"""
         async with self.pool.acquire() as conn:
+            # Let asyncpg handle JSONB serialization automatically
             await conn.execute("""
-                UPDATE users SET default_bot_config = $2 WHERE id = $1
+                UPDATE users SET default_bot_config = $2::jsonb WHERE id = $1
             """, user_id, json.dumps(config))
 
     async def add_wallet_transaction(self, user_id: int, amount: float, tx_type: str, balance_after: float, event_ticker: str = None, trade_id: int = None) -> None:

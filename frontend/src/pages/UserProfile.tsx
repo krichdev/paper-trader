@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { resetUserAccount } from '../lib/api';
-import { TrendingUp, TrendingDown, DollarSign, Activity, Calendar, Award, ArrowLeft, RotateCcw } from 'lucide-react';
+import { resetUserAccount, getUserDefaultBotConfig, updateUserDefaultBotConfig } from '../lib/api';
+import { TrendingUp, TrendingDown, DollarSign, Activity, Calendar, Award, ArrowLeft, RotateCcw, Settings } from 'lucide-react';
 
 interface UserStats {
   user: {
@@ -31,6 +31,14 @@ interface UserStats {
   recent_transactions: any[];
 }
 
+interface BotConfig {
+  momentum_threshold: number;
+  initial_stop: number;
+  profit_target: number;
+  breakeven_trigger: number;
+  position_size_pct: number;
+}
+
 export function UserProfile() {
   const { refreshUser } = useAuth();
   const navigate = useNavigate();
@@ -38,9 +46,18 @@ export function UserProfile() {
   const [loading, setLoading] = useState(true);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [botConfig, setBotConfig] = useState<BotConfig>({
+    momentum_threshold: 8,
+    initial_stop: 8,
+    profit_target: 15,
+    breakeven_trigger: 5,
+    position_size_pct: 0.5
+  });
+  const [savingConfig, setSavingConfig] = useState(false);
 
   useEffect(() => {
     loadStats();
+    loadBotConfig();
   }, []);
 
   const loadStats = async () => {
@@ -56,6 +73,28 @@ export function UserProfile() {
       console.error('Failed to load stats:', e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadBotConfig = async () => {
+    try {
+      const config = await getUserDefaultBotConfig();
+      setBotConfig(config);
+    } catch (e) {
+      console.error('Failed to load bot config:', e);
+    }
+  };
+
+  const handleSaveBotConfig = async () => {
+    setSavingConfig(true);
+    try {
+      await updateUserDefaultBotConfig(botConfig);
+      alert('Default bot configuration saved successfully!');
+    } catch (e: any) {
+      console.error('Failed to save bot config:', e);
+      alert(e.message || 'Failed to save bot configuration');
+    } finally {
+      setSavingConfig(false);
     }
   };
 
@@ -212,6 +251,81 @@ export function UserProfile() {
             <div className="text-sm text-slate-400 mt-1">
               {stats.trading_stats.open_trades} open positions
             </div>
+          </div>
+        </div>
+
+        {/* Default Bot Configuration */}
+        <div className="bg-slate-800 rounded-xl p-4 sm:p-6 border-2 border-slate-700 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold flex items-center gap-2">
+              <Settings className="text-purple-400" size={20} />
+              Default Bot Configuration
+            </h2>
+          </div>
+          <p className="text-sm text-slate-400 mb-4">
+            These settings will be used as defaults when deploying new bots. You can still customize each bot individually.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-slate-400 text-sm mb-1">Momentum Threshold (¢)</label>
+              <input
+                type="number"
+                value={botConfig.momentum_threshold}
+                onChange={(e) => setBotConfig({ ...botConfig, momentum_threshold: parseInt(e.target.value) || 0 })}
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
+              />
+              <p className="text-xs text-slate-500 mt-1">Price movement required to trigger entry</p>
+            </div>
+            <div>
+              <label className="block text-slate-400 text-sm mb-1">Initial Stop Loss (¢)</label>
+              <input
+                type="number"
+                value={botConfig.initial_stop}
+                onChange={(e) => setBotConfig({ ...botConfig, initial_stop: parseInt(e.target.value) || 0 })}
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
+              />
+              <p className="text-xs text-slate-500 mt-1">Initial stop loss distance</p>
+            </div>
+            <div>
+              <label className="block text-slate-400 text-sm mb-1">Profit Target (¢)</label>
+              <input
+                type="number"
+                value={botConfig.profit_target}
+                onChange={(e) => setBotConfig({ ...botConfig, profit_target: parseInt(e.target.value) || 0 })}
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
+              />
+              <p className="text-xs text-slate-500 mt-1">Price target for taking profit</p>
+            </div>
+            <div>
+              <label className="block text-slate-400 text-sm mb-1">Breakeven Trigger (¢)</label>
+              <input
+                type="number"
+                value={botConfig.breakeven_trigger}
+                onChange={(e) => setBotConfig({ ...botConfig, breakeven_trigger: parseInt(e.target.value) || 0 })}
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
+              />
+              <p className="text-xs text-slate-500 mt-1">Profit level to move stop to breakeven</p>
+            </div>
+            <div>
+              <label className="block text-slate-400 text-sm mb-1">Position Size (%)</label>
+              <input
+                type="number"
+                value={botConfig.position_size_pct * 100}
+                onChange={(e) => setBotConfig({ ...botConfig, position_size_pct: parseFloat(e.target.value) / 100 || 0 })}
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
+                step="5"
+              />
+              <p className="text-xs text-slate-500 mt-1">Percentage of bankroll per trade</p>
+            </div>
+          </div>
+          <div className="mt-4">
+            <button
+              onClick={handleSaveBotConfig}
+              disabled={savingConfig}
+              className="px-6 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {savingConfig ? 'Saving...' : 'Save Default Configuration'}
+            </button>
           </div>
         </div>
 

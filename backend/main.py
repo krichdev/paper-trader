@@ -409,6 +409,29 @@ async def get_user_stats(user_id: int = Depends(get_current_user_id)):
     }
 
 
+@app.get("/api/user/default-bot-config")
+async def get_user_default_bot_config(user_id: int = Depends(get_current_user_id)):
+    """Get user's default bot configuration"""
+    config = await db.get_user_default_bot_config(user_id)
+    return config
+
+
+@app.put("/api/user/default-bot-config")
+async def update_user_default_bot_config(
+    config: dict,
+    user_id: int = Depends(get_current_user_id)
+):
+    """Update user's default bot configuration"""
+    # Validate config fields
+    required_fields = ['momentum_threshold', 'initial_stop', 'profit_target', 'breakeven_trigger', 'position_size_pct']
+    for field in required_fields:
+        if field not in config:
+            raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
+
+    await db.update_user_default_bot_config(user_id, config)
+    return {"message": "Default bot configuration updated successfully", "config": config}
+
+
 @app.get("/api/leaderboard")
 async def get_leaderboard():
     """Get leaderboard of top users by P&L"""

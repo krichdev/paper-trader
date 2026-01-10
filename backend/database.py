@@ -100,6 +100,23 @@ class Database:
                 )
             """)
 
+            # Add default_bot_config column (migration)
+            await conn.execute("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                                   WHERE table_name='users' AND column_name='default_bot_config') THEN
+                        ALTER TABLE users ADD COLUMN default_bot_config JSONB DEFAULT '{
+                            "momentum_threshold": 8,
+                            "initial_stop": 8,
+                            "profit_target": 15,
+                            "breakeven_trigger": 5,
+                            "position_size_pct": 0.5
+                        }'::jsonb;
+                    END IF;
+                END $$;
+            """)
+
             # Wallet transactions table
             await conn.execute("""
                 CREATE TABLE IF NOT EXISTS wallet_transactions (
@@ -268,6 +285,30 @@ class Database:
                     total_pnl = total_pnl + $3
                 WHERE id = $1
             """, user_id, new_balance, pnl_change)
+
+    async def get_user_default_bot_config(self, user_id: int) -> Dict:
+        """Get user's default bot configuration"""
+        async with self.pool.acquire() as conn:
+            row = await conn.fetchrow("""
+                SELECT default_bot_config FROM users WHERE id = $1
+            """, user_id)
+            if row and row['default_bot_config']:
+                return dict(row['default_bot_config'])
+            # Return system defaults if not set
+            return {
+                "momentum_threshold": 8,
+                "initial_stop": 8,
+                "profit_target": 15,
+                "breakeven_trigger": 5,
+                "position_size_pct": 0.5
+            }
+
+    async def update_user_default_bot_config(self, user_id: int, config: Dict) -> None:
+        """Update user's default bot configuration"""
+        async with self.pool.acquire() as conn:
+            await conn.execute("""
+                UPDATE users SET default_bot_config = $2 WHERE id = $1
+            """, user_id, json.dumps(config))
 
     async def add_wallet_transaction(self, user_id: int, amount: float, tx_type: str, balance_after: float, event_ticker: str = None, trade_id: int = None) -> None:
         """Record a wallet transaction"""

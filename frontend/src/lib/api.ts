@@ -177,3 +177,38 @@ export async function resetUserAccount() {
 
   return res.json();
 }
+
+export async function getUserDefaultBotConfig() {
+  const res = await fetch(`${API_BASE}/user/default-bot-config`, {
+    credentials: 'include'
+  });
+
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.detail || 'Failed to get default bot config');
+  }
+
+  return res.json();
+}
+
+export async function updateUserDefaultBotConfig(config: {
+  momentum_threshold: number;
+  initial_stop: number;
+  profit_target: number;
+  breakeven_trigger: number;
+  position_size_pct: number;
+}) {
+  const res = await fetch(`${API_BASE}/user/default-bot-config`, {
+    method: 'PUT',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(config)
+  });
+
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.detail || 'Failed to update default bot config');
+  }
+
+  return res.json();
+}

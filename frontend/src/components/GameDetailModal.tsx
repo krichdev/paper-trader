@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, DollarSign, Calendar, Trophy } from 'lucide-react';
+import { getUserDefaultBotConfig } from '../lib/api';
 
 interface Game {
   event_ticker: string;
@@ -48,19 +49,29 @@ export function GameDetailModal({ game, isOpen, onClose, onStartBot, userBalance
     position_size_pct: '50'
   });
 
-  // Reset input values when modal closes
+  // Load user's default config when modal opens
   useEffect(() => {
-    if (!isOpen) {
-      setInputValues({
-        bankroll: '500',
-        momentum_threshold: '8',
-        initial_stop: '8',
-        profit_target: '15',
-        breakeven_trigger: '5',
-        position_size_pct: '50'
-      });
+    if (isOpen) {
+      loadUserDefaults();
     }
   }, [isOpen]);
+
+  const loadUserDefaults = async () => {
+    try {
+      const config = await getUserDefaultBotConfig();
+      setInputValues({
+        bankroll: '500', // Keep bankroll at 500 default
+        momentum_threshold: config.momentum_threshold.toString(),
+        initial_stop: config.initial_stop.toString(),
+        profit_target: config.profit_target.toString(),
+        breakeven_trigger: config.breakeven_trigger.toString(),
+        position_size_pct: (config.position_size_pct * 100).toString()
+      });
+    } catch (e) {
+      console.error('Failed to load user default config:', e);
+      // Keep existing defaults if fetch fails
+    }
+  };
 
   if (!isOpen || !game) return null;
 

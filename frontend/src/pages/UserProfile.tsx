@@ -104,7 +104,11 @@ export function UserProfile() {
         breakeven_trigger: parseInt(inputValues.breakeven_trigger, 10) || 0,
         position_size_pct: (parseFloat(inputValues.position_size_pct) || 0) / 100
       };
-      await updateUserDefaultBotConfig(configToSave);
+
+      console.log('Saving bot config:', configToSave);
+      const result = await updateUserDefaultBotConfig(configToSave);
+      console.log('Save result:', result);
+
       // Update input values to clean up any invalid entries
       setInputValues({
         momentum_threshold: configToSave.momentum_threshold.toString(),
@@ -116,7 +120,7 @@ export function UserProfile() {
       alert('Default bot configuration saved successfully!');
     } catch (e: any) {
       console.error('Failed to save bot config:', e);
-      alert(e.message || 'Failed to save bot configuration');
+      alert(`Failed to save: ${e.message || 'Unknown error'}`);
     } finally {
       setSavingConfig(false);
     }

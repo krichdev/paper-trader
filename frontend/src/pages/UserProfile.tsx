@@ -293,57 +293,55 @@ export function UserProfile() {
             <div>
               <label className="block text-slate-400 text-sm mb-1">Momentum Threshold (¢)</label>
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
                 value={inputValues.momentum_threshold}
                 onChange={(e) => setInputValues({ ...inputValues, momentum_threshold: e.target.value })}
                 className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
-                min="0"
               />
               <p className="text-xs text-slate-500 mt-1">Price movement required to trigger entry</p>
             </div>
             <div>
               <label className="block text-slate-400 text-sm mb-1">Initial Stop Loss (¢)</label>
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
                 value={inputValues.initial_stop}
                 onChange={(e) => setInputValues({ ...inputValues, initial_stop: e.target.value })}
                 className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
-                min="0"
               />
               <p className="text-xs text-slate-500 mt-1">Initial stop loss distance</p>
             </div>
             <div>
               <label className="block text-slate-400 text-sm mb-1">Profit Target (¢)</label>
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
                 value={inputValues.profit_target}
                 onChange={(e) => setInputValues({ ...inputValues, profit_target: e.target.value })}
                 className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
-                min="0"
               />
               <p className="text-xs text-slate-500 mt-1">Price target for taking profit</p>
             </div>
             <div>
               <label className="block text-slate-400 text-sm mb-1">Breakeven Trigger (¢)</label>
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
                 value={inputValues.breakeven_trigger}
                 onChange={(e) => setInputValues({ ...inputValues, breakeven_trigger: e.target.value })}
                 className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
-                min="0"
               />
               <p className="text-xs text-slate-500 mt-1">Profit level to move stop to breakeven</p>
             </div>
             <div>
               <label className="block text-slate-400 text-sm mb-1">Position Size (%)</label>
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
                 value={inputValues.position_size_pct}
                 onChange={(e) => setInputValues({ ...inputValues, position_size_pct: e.target.value })}
                 className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
-                step="5"
-                min="0"
-                max="100"
               />
               <p className="text-xs text-slate-500 mt-1">Percentage of bankroll per trade</p>
             </div>

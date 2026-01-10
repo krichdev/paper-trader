@@ -272,8 +272,21 @@ export function UserProfile() {
                 type="number"
                 value={botConfig.momentum_threshold}
                 onChange={(e) => {
-                  const val = e.target.value === '' ? '' : parseInt(e.target.value, 10);
-                  setBotConfig({ ...botConfig, momentum_threshold: val === '' ? 0 : (isNaN(val) ? 0 : val) });
+                  const value = e.target.value;
+                  // Allow empty string or valid number (including while typing)
+                  if (value === '') {
+                    setBotConfig({ ...botConfig, momentum_threshold: 0 });
+                  } else {
+                    const parsed = parseInt(value, 10);
+                    if (!isNaN(parsed)) {
+                      setBotConfig({ ...botConfig, momentum_threshold: parsed });
+                    }
+                  }
+                }}
+                onBlur={(e) => {
+                  // Clean up on blur
+                  const value = parseInt(e.target.value, 10);
+                  setBotConfig({ ...botConfig, momentum_threshold: isNaN(value) ? 0 : value });
                 }}
                 className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
                 min="0"
@@ -286,8 +299,19 @@ export function UserProfile() {
                 type="number"
                 value={botConfig.initial_stop}
                 onChange={(e) => {
-                  const val = e.target.value === '' ? '' : parseInt(e.target.value, 10);
-                  setBotConfig({ ...botConfig, initial_stop: val === '' ? 0 : (isNaN(val) ? 0 : val) });
+                  const value = e.target.value;
+                  if (value === '') {
+                    setBotConfig({ ...botConfig, initial_stop: 0 });
+                  } else {
+                    const parsed = parseInt(value, 10);
+                    if (!isNaN(parsed)) {
+                      setBotConfig({ ...botConfig, initial_stop: parsed });
+                    }
+                  }
+                }}
+                onBlur={(e) => {
+                  const value = parseInt(e.target.value, 10);
+                  setBotConfig({ ...botConfig, initial_stop: isNaN(value) ? 0 : value });
                 }}
                 className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
                 min="0"
@@ -300,8 +324,19 @@ export function UserProfile() {
                 type="number"
                 value={botConfig.profit_target}
                 onChange={(e) => {
-                  const val = e.target.value === '' ? '' : parseInt(e.target.value, 10);
-                  setBotConfig({ ...botConfig, profit_target: val === '' ? 0 : (isNaN(val) ? 0 : val) });
+                  const value = e.target.value;
+                  if (value === '') {
+                    setBotConfig({ ...botConfig, profit_target: 0 });
+                  } else {
+                    const parsed = parseInt(value, 10);
+                    if (!isNaN(parsed)) {
+                      setBotConfig({ ...botConfig, profit_target: parsed });
+                    }
+                  }
+                }}
+                onBlur={(e) => {
+                  const value = parseInt(e.target.value, 10);
+                  setBotConfig({ ...botConfig, profit_target: isNaN(value) ? 0 : value });
                 }}
                 className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
                 min="0"
@@ -314,8 +349,19 @@ export function UserProfile() {
                 type="number"
                 value={botConfig.breakeven_trigger}
                 onChange={(e) => {
-                  const val = e.target.value === '' ? '' : parseInt(e.target.value, 10);
-                  setBotConfig({ ...botConfig, breakeven_trigger: val === '' ? 0 : (isNaN(val) ? 0 : val) });
+                  const value = e.target.value;
+                  if (value === '') {
+                    setBotConfig({ ...botConfig, breakeven_trigger: 0 });
+                  } else {
+                    const parsed = parseInt(value, 10);
+                    if (!isNaN(parsed)) {
+                      setBotConfig({ ...botConfig, breakeven_trigger: parsed });
+                    }
+                  }
+                }}
+                onBlur={(e) => {
+                  const value = parseInt(e.target.value, 10);
+                  setBotConfig({ ...botConfig, breakeven_trigger: isNaN(value) ? 0 : value });
                 }}
                 className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
                 min="0"
@@ -328,8 +374,19 @@ export function UserProfile() {
                 type="number"
                 value={botConfig.position_size_pct * 100}
                 onChange={(e) => {
-                  const val = e.target.value === '' ? '' : parseFloat(e.target.value);
-                  setBotConfig({ ...botConfig, position_size_pct: val === '' ? 0 : (isNaN(val) ? 0 : val / 100) });
+                  const value = e.target.value;
+                  if (value === '') {
+                    setBotConfig({ ...botConfig, position_size_pct: 0 });
+                  } else {
+                    const parsed = parseFloat(value);
+                    if (!isNaN(parsed)) {
+                      setBotConfig({ ...botConfig, position_size_pct: parsed / 100 });
+                    }
+                  }
+                }}
+                onBlur={(e) => {
+                  const value = parseFloat(e.target.value);
+                  setBotConfig({ ...botConfig, position_size_pct: isNaN(value) ? 0 : value / 100 });
                 }}
                 className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
                 step="5"

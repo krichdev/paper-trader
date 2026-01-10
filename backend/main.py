@@ -947,8 +947,7 @@ async def get_game_history(event_ticker: str, user_id: int = Depends(get_current
 
     ticks = await db.get_all_ticks(event_ticker)
     # Get trades filtered by user
-    trades_rows = await db.pool.acquire()
-    async with trades_rows as conn:
+    async with db.pool.acquire() as conn:
         rows = await conn.fetch("""
             SELECT * FROM bot_trades
             WHERE event_ticker = $1 AND user_id = $2

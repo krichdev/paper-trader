@@ -271,8 +271,12 @@ export function UserProfile() {
               <input
                 type="number"
                 value={botConfig.momentum_threshold}
-                onChange={(e) => setBotConfig({ ...botConfig, momentum_threshold: parseInt(e.target.value) || 0 })}
+                onChange={(e) => {
+                  const val = e.target.value === '' ? '' : parseInt(e.target.value, 10);
+                  setBotConfig({ ...botConfig, momentum_threshold: val === '' ? 0 : (isNaN(val) ? 0 : val) });
+                }}
                 className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
+                min="0"
               />
               <p className="text-xs text-slate-500 mt-1">Price movement required to trigger entry</p>
             </div>
@@ -281,8 +285,12 @@ export function UserProfile() {
               <input
                 type="number"
                 value={botConfig.initial_stop}
-                onChange={(e) => setBotConfig({ ...botConfig, initial_stop: parseInt(e.target.value) || 0 })}
+                onChange={(e) => {
+                  const val = e.target.value === '' ? '' : parseInt(e.target.value, 10);
+                  setBotConfig({ ...botConfig, initial_stop: val === '' ? 0 : (isNaN(val) ? 0 : val) });
+                }}
                 className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
+                min="0"
               />
               <p className="text-xs text-slate-500 mt-1">Initial stop loss distance</p>
             </div>
@@ -291,8 +299,12 @@ export function UserProfile() {
               <input
                 type="number"
                 value={botConfig.profit_target}
-                onChange={(e) => setBotConfig({ ...botConfig, profit_target: parseInt(e.target.value) || 0 })}
+                onChange={(e) => {
+                  const val = e.target.value === '' ? '' : parseInt(e.target.value, 10);
+                  setBotConfig({ ...botConfig, profit_target: val === '' ? 0 : (isNaN(val) ? 0 : val) });
+                }}
                 className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
+                min="0"
               />
               <p className="text-xs text-slate-500 mt-1">Price target for taking profit</p>
             </div>
@@ -301,8 +313,12 @@ export function UserProfile() {
               <input
                 type="number"
                 value={botConfig.breakeven_trigger}
-                onChange={(e) => setBotConfig({ ...botConfig, breakeven_trigger: parseInt(e.target.value) || 0 })}
+                onChange={(e) => {
+                  const val = e.target.value === '' ? '' : parseInt(e.target.value, 10);
+                  setBotConfig({ ...botConfig, breakeven_trigger: val === '' ? 0 : (isNaN(val) ? 0 : val) });
+                }}
                 className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
+                min="0"
               />
               <p className="text-xs text-slate-500 mt-1">Profit level to move stop to breakeven</p>
             </div>
@@ -311,9 +327,14 @@ export function UserProfile() {
               <input
                 type="number"
                 value={botConfig.position_size_pct * 100}
-                onChange={(e) => setBotConfig({ ...botConfig, position_size_pct: parseFloat(e.target.value) / 100 || 0 })}
+                onChange={(e) => {
+                  const val = e.target.value === '' ? '' : parseFloat(e.target.value);
+                  setBotConfig({ ...botConfig, position_size_pct: val === '' ? 0 : (isNaN(val) ? 0 : val / 100) });
+                }}
                 className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
                 step="5"
+                min="0"
+                max="100"
               />
               <p className="text-xs text-slate-500 mt-1">Percentage of bankroll per trade</p>
             </div>

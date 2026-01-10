@@ -1,127 +1,97 @@
-# Deployment Guide for Dokploy
+# Deployment Guide
 
-This guide will help you deploy the Paper Trader application on Dokploy.
+## Database Migrations
 
-## Prerequisites
+### How Migrations Work
 
-- A Dokploy instance running
-- GitHub repository connected to Dokploy
+Database migrations are defined in `backend/database.py` in the `Database.setup()` method. This method runs automatically when the database connection pool is first created (when the backend starts).
 
-## Deployment Steps
+### When You Need to Restart the Backend
 
-### 1. Create Application in Dokploy
+**You MUST fully restart the backend container when:**
+- Adding new database tables
+- Adding new columns to existing tables  
+- Creating new indexes
+- Any ALTER TABLE or CREATE TABLE statements
 
-1. Log into your Dokploy dashboard
-2. Create a new application
-3. Select **Docker Compose** as the deployment type
-4. Connect to GitHub and select repository: `krichdev/paper-trader`
-5. Set branch to `main`
-6. Set Compose Path to `./docker-compose.yml`
+**You do NOT need to restart when:**
+- Adding new Python methods that query existing tables
+- Adding new API endpoints
+- Changing business logic
+- Frontend changes
 
-### 2. Configure Environment Variables
+### How to Fully Restart (Dokploy)
 
-In the Dokploy environment variables section, add the following **required** variables:
+If you need to force migrations to run:
 
-#### Database Configuration
-```
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=<generate-strong-password>
-POSTGRES_DB=paper_trader
-```
+1. Go to the Dokploy dashboard
+2. Navigate to your app: `paper-trader-app-xgw7l4`
+3. Click **"Stop"** (red button) - wait for containers to stop
+4. Click **"Deploy"** (rocket icon) - starts everything fresh
 
-#### Optional Configuration
-```
-PORT=80
-```
+**Important:** The "Reload" button only reloads the compose file without restarting containers - this will NOT run migrations.
 
-**Important Security Notes:**
-- Replace `<generate-strong-password>` with a strong, randomly generated password
-- Never commit actual passwords to your repository
-- Use Dokploy's built-in secret management for sensitive values
+### Automatic Restarts
 
-### 3. Configure Port Mapping
+For code-only changes (no database schema changes), Dokploy should automatically:
+- Pull latest code from GitHub (if Autodeploy is ON)
+- Rebuild containers
+- Restart services
 
-- The application runs on port 80 by default (configurable via `PORT` env var)
-- Map this to your desired public port or use Dokploy's reverse proxy
-- The backend (port 8000) and database (port 5432) are internal only
+However, if the Python process doesn't fully restart, the database pool won't reconnect and migrations won't run.
 
-### 4. Deploy
+### Troubleshooting
 
-1. Click **Deploy** or **Save** in Dokploy
-2. Dokploy will:
-   - Pull the latest code from GitHub
-   - Build the Docker images
-   - Start the containers with your environment variables
-   - Set up the PostgreSQL database automatically
+**Symptom:** New database column/table methods fail with "column does not exist" or similar errors
 
-### 5. Verify Deployment
+**Solution:**
+1. Check backend logs for migration errors
+2. Verify the migration code is in `database.py` setup()
+3. Fully stop and restart the backend (see above)
+4. Check logs again to confirm migration ran
 
-1. Check container logs in Dokploy dashboard:
-   - `db` - Should show "database system is ready to accept connections"
-   - `backend` - Should show "Application startup complete"
-   - `frontend` - Should show nginx worker processes started
+**Symptom:** New API endpoint returns 500 error  
 
-2. Access your application at your Dokploy domain
+**Check:**
+1. Backend logs for Python errors (import errors, syntax errors)
+2. Database connection is healthy
+3. All dependencies are installed
 
-## Environment Variables Reference
+### Migration Best Practices
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `POSTGRES_USER` | No | `postgres` | PostgreSQL username |
-| `POSTGRES_PASSWORD` | **Yes (Production)** | `postgres` | PostgreSQL password - **use strong password in production** |
-| `POSTGRES_DB` | No | `paper_trader` | PostgreSQL database name |
-| `PORT` | No | `80` | External port for frontend |
+1. **Test locally first:** Always run migrations on your local database before deploying
+2. **Make migrations idempotent:** Use `IF NOT EXISTS` and `DO $$` blocks to prevent errors on re-run
+3. **Never drop columns in production:** Add new columns, deprecate old ones gradually
+4. **Backup before migrations:** Ensure database backups are recent before major schema changes
 
-## Data Persistence
+### Example Migration Pattern
 
-- Database data is stored in a Docker volume named `postgres_data`
-- This volume persists across container restarts
-- Make sure Dokploy is configured to back up volumes, or set up your own backup strategy
-
-## Updating the Application
-
-1. Push changes to the `main` branch on GitHub
-2. Dokploy will automatically trigger a rebuild (if configured for auto-deploy)
-3. Or manually trigger a redeploy from the Dokploy dashboard
-
-## Troubleshooting
-
-### Database Connection Issues
-- Verify `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB` match in your environment variables
-- Check that the `db` container is healthy before backend starts
-
-### Frontend Not Loading
-- Check that port mapping is correct
-- Verify nginx logs for errors
-- Ensure backend is accessible from frontend container
-
-### WebSocket Connection Fails
-- Check that your reverse proxy supports WebSocket connections
-- Verify the WebSocket URL in the frontend matches your deployment URL
-
-## Architecture
-
-```
-┌─────────────┐
-│  Frontend   │ (Port 80)
-│   (Nginx)   │
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│   Backend   │ (Internal: 8000)
-│  (FastAPI)  │
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│  Database   │ (Internal: 5432)
-│ (PostgreSQL)│
-└─────────────┘
+```python
+# In database.py setup() method
+await conn.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name='users' AND column_name='new_column'
+        ) THEN
+            ALTER TABLE users ADD COLUMN new_column TEXT;
+        END IF;
+    END $$;
+""")
 ```
 
-## Support
+This pattern ensures:
+- Migration can run multiple times safely
+- Won't error if column already exists
+- Clear error messages if something goes wrong
 
-For issues with:
-- **Application bugs**: Open an issue on GitHub
-- **Deployment issues**: Check Dokploy documentation or support
+## Deployment Checklist
+
+- [ ] Test changes locally
+- [ ] Commit and push to GitHub
+- [ ] If database schema changed: Stop and Deploy in Dokploy
+- [ ] If code only: Wait for auto-deploy or click Deploy
+- [ ] Check backend logs for errors
+- [ ] Test the new feature on production
+- [ ] Monitor for any errors in the first few minutes

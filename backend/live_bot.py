@@ -383,6 +383,13 @@ class LivePaperBot:
                 "wins": self.wins,
                 "losses": self.losses,
                 "win_rate": (self.wins / self.total_trades * 100) if self.total_trades > 0 else 0
+            },
+            "config": {
+                "momentum_threshold": self.momentum_threshold,
+                "initial_stop": self.initial_stop,
+                "profit_target": self.profit_target,
+                "breakeven_trigger": self.breakeven_trigger,
+                "position_size_pct": self.position_size_pct
             }
         }
 

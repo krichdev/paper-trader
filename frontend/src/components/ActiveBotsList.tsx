@@ -23,6 +23,13 @@ interface WalletStatus {
     losses: number;
     win_rate: number;
   };
+  config?: {
+    momentum_threshold: number;
+    initial_stop: number;
+    profit_target: number;
+    breakeven_trigger: number;
+    position_size_pct: number;
+  };
 }
 
 interface Trade {
@@ -72,13 +79,7 @@ export function ActiveBotsList({ activeBots, onToggleExpand, onStopBot, onTopUp,
   const [showConfigFor, setShowConfigFor] = useState<string | null>(null);
   const [showTopUpFor, setShowTopUpFor] = useState<string | null>(null);
   const [topUpAmount, setTopUpAmount] = useState<number>(100);
-  const [config, setConfig] = useState<BotConfig>({
-    momentum_threshold: 8,
-    initial_stop: 8,
-    profit_target: 15,
-    breakeven_trigger: 5,
-    position_size_pct: 0.5
-  });
+  const [botConfigs, setBotConfigs] = useState<Record<string, BotConfig>>({});
 
   // Build Kalshi event URL from event ticker
   const getKalshiUrl = (eventTicker: string): string => {
@@ -107,9 +108,49 @@ export function ActiveBotsList({ activeBots, onToggleExpand, onStopBot, onTopUp,
     );
   }
 
+  // Get config for a specific bot, with fallback to defaults
+  const getConfigForBot = (eventTicker: string, wallet?: WalletStatus): BotConfig => {
+    // First check if we have an edited config in state
+    if (botConfigs[eventTicker]) {
+      return botConfigs[eventTicker];
+    }
+
+    // Otherwise, use the bot's actual config from wallet if available
+    if (wallet?.config) {
+      return wallet.config;
+    }
+
+    // Fallback to defaults
+    return {
+      momentum_threshold: 8,
+      initial_stop: 8,
+      profit_target: 15,
+      breakeven_trigger: 5,
+      position_size_pct: 0.5
+    };
+  };
+
+  const handleOpenConfig = (eventTicker: string, wallet: WalletStatus) => {
+    // Load the bot's actual config into state
+    const currentConfig = getConfigForBot(eventTicker, wallet);
+    setBotConfigs(prev => ({ ...prev, [eventTicker]: currentConfig }));
+    setShowConfigFor(eventTicker);
+    setShowTopUpFor(null);
+  };
+
   const handleUpdateConfig = (eventTicker: string) => {
-    onUpdateConfig(eventTicker, config);
+    const config = botConfigs[eventTicker];
+    if (config) {
+      onUpdateConfig(eventTicker, config);
+    }
     setShowConfigFor(null);
+  };
+
+  const updateBotConfig = (eventTicker: string, updates: Partial<BotConfig>) => {
+    setBotConfigs(prev => ({
+      ...prev,
+      [eventTicker]: { ...getConfigForBot(eventTicker), ...updates }
+    }));
   };
 
   const handleTopUp = async (eventTicker: string) => {
@@ -305,73 +346,76 @@ export function ActiveBotsList({ activeBots, onToggleExpand, onStopBot, onTopUp,
           {/* Expanded Content - Always visible on desktop, toggleable on mobile */}
           <div className={`px-4 pb-4 space-y-4 border-t border-slate-700 pt-4 flex-1 overflow-y-auto ${bot.isExpanded ? 'block' : 'hidden'} md:block`} style={{scrollbarWidth: 'thin'}}>
               {/* Config Panel */}
-              {showConfigFor === bot.eventTicker && (
-                <div className="p-4 bg-slate-700/50 rounded-lg border border-slate-600">
-                  <h4 className="font-bold mb-3 text-sm">Update Configuration</h4>
-                  <div className="space-y-2 text-sm">
-                    <div>
-                      <label className="block text-slate-400 mb-1">Momentum Threshold (¢)</label>
-                      <input
-                        type="number"
-                        value={config.momentum_threshold}
-                        onChange={(e) => setConfig({ ...config, momentum_threshold: parseInt(e.target.value) || 0 })}
-                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded"
-                      />
+              {showConfigFor === bot.eventTicker && (() => {
+                const currentConfig = getConfigForBot(bot.eventTicker, bot.wallet);
+                return (
+                  <div className="p-4 bg-slate-700/50 rounded-lg border border-slate-600">
+                    <h4 className="font-bold mb-3 text-sm">Update Configuration</h4>
+                    <div className="space-y-2 text-sm">
+                      <div>
+                        <label className="block text-slate-400 mb-1">Momentum Threshold (¢)</label>
+                        <input
+                          type="number"
+                          value={currentConfig.momentum_threshold}
+                          onChange={(e) => updateBotConfig(bot.eventTicker, { momentum_threshold: parseInt(e.target.value) || 0 })}
+                          className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-400 mb-1">Initial Stop (¢)</label>
+                        <input
+                          type="number"
+                          value={currentConfig.initial_stop}
+                          onChange={(e) => updateBotConfig(bot.eventTicker, { initial_stop: parseInt(e.target.value) || 0 })}
+                          className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-400 mb-1">Profit Target (¢)</label>
+                        <input
+                          type="number"
+                          value={currentConfig.profit_target}
+                          onChange={(e) => updateBotConfig(bot.eventTicker, { profit_target: parseInt(e.target.value) || 0 })}
+                          className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-400 mb-1">Breakeven Trigger (¢)</label>
+                        <input
+                          type="number"
+                          value={currentConfig.breakeven_trigger}
+                          onChange={(e) => updateBotConfig(bot.eventTicker, { breakeven_trigger: parseInt(e.target.value) || 0 })}
+                          className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-400 mb-1">Position Size (%)</label>
+                        <input
+                          type="number"
+                          value={currentConfig.position_size_pct * 100}
+                          onChange={(e) => updateBotConfig(bot.eventTicker, { position_size_pct: parseFloat(e.target.value) / 100 || 0 })}
+                          className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded"
+                          step="5"
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-slate-400 mb-1">Initial Stop (¢)</label>
-                      <input
-                        type="number"
-                        value={config.initial_stop}
-                        onChange={(e) => setConfig({ ...config, initial_stop: parseInt(e.target.value) || 0 })}
-                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-slate-400 mb-1">Profit Target (¢)</label>
-                      <input
-                        type="number"
-                        value={config.profit_target}
-                        onChange={(e) => setConfig({ ...config, profit_target: parseInt(e.target.value) || 0 })}
-                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-slate-400 mb-1">Breakeven Trigger (¢)</label>
-                      <input
-                        type="number"
-                        value={config.breakeven_trigger}
-                        onChange={(e) => setConfig({ ...config, breakeven_trigger: parseInt(e.target.value) || 0 })}
-                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-slate-400 mb-1">Position Size (%)</label>
-                      <input
-                        type="number"
-                        value={config.position_size_pct * 100}
-                        onChange={(e) => setConfig({ ...config, position_size_pct: parseFloat(e.target.value) / 100 || 0 })}
-                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded"
-                        step="5"
-                      />
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        onClick={() => handleUpdateConfig(bot.eventTicker)}
+                        className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg font-medium text-sm transition-colors"
+                      >
+                        Update
+                      </button>
+                      <button
+                        onClick={() => setShowConfigFor(null)}
+                        className="px-4 py-2 bg-slate-600 hover:bg-slate-500 rounded-lg text-sm transition-colors"
+                      >
+                        Cancel
+                      </button>
                     </div>
                   </div>
-                  <div className="mt-3 flex gap-2">
-                    <button
-                      onClick={() => handleUpdateConfig(bot.eventTicker)}
-                      className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg font-medium text-sm transition-colors"
-                    >
-                      Update
-                    </button>
-                    <button
-                      onClick={() => setShowConfigFor(null)}
-                      className="px-4 py-2 bg-slate-600 hover:bg-slate-500 rounded-lg text-sm transition-colors"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Top Up Panel */}
               {showTopUpFor === bot.eventTicker && (
@@ -542,8 +586,11 @@ export function ActiveBotsList({ activeBots, onToggleExpand, onStopBot, onTopUp,
               <div className="flex gap-2 pt-2" onClick={(e) => e.stopPropagation()}>
                 <button
                   onClick={() => {
-                    setShowConfigFor(showConfigFor === bot.eventTicker ? null : bot.eventTicker);
-                    setShowTopUpFor(null);
+                    if (showConfigFor === bot.eventTicker) {
+                      setShowConfigFor(null);
+                    } else {
+                      handleOpenConfig(bot.eventTicker, bot.wallet);
+                    }
                   }}
                   className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium text-sm transition-colors flex items-center justify-center"
                   title="Configure bot settings"

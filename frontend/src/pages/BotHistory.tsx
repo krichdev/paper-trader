@@ -184,7 +184,7 @@ export function BotHistory() {
                   </div>
 
                   {/* Config */}
-                  {session.bot_config && (
+                  {session.bot_config && session.bot_config.momentum_threshold ? (
                     <div className="bg-slate-900 rounded-lg p-3">
                       <div className="text-xs text-slate-400 mb-2">Bot Configuration</div>
                       <div className="flex flex-wrap gap-2">
@@ -203,6 +203,13 @@ export function BotHistory() {
                         <span className="px-2 py-1 bg-slate-800 rounded text-xs">
                           Size: {(session.bot_config.position_size_pct * 100).toFixed(0)}%
                         </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-slate-900 rounded-lg p-3">
+                      <div className="text-xs text-slate-400 mb-2">Bot Configuration</div>
+                      <div className="text-sm text-slate-500 italic">
+                        Configuration not recorded for this session
                       </div>
                     </div>
                   )}

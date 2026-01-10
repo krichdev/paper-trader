@@ -183,7 +183,7 @@ export function BotSessionDetail() {
         </div>
 
         {/* Bot Configuration */}
-        {data.trades.length > 0 && data.trades[0].config_snapshot && (
+        {data.trades.length > 0 && data.trades[0].config_snapshot && data.trades[0].config_snapshot.momentum_threshold ? (
           <div className="bg-slate-800 rounded-xl p-4 sm:p-6 border-2 border-purple-500/30 mb-6">
             <h3 className="font-bold mb-3 text-purple-400">Bot Configuration</h3>
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
@@ -217,6 +217,13 @@ export function BotSessionDetail() {
                   {(data.trades[0].config_snapshot.position_size_pct * 100).toFixed(0)}%
                 </div>
               </div>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-slate-800 rounded-xl p-4 sm:p-6 border-2 border-slate-700 mb-6">
+            <h3 className="font-bold mb-3 text-slate-400">Bot Configuration</h3>
+            <div className="text-sm text-slate-500 italic">
+              Configuration not recorded for this session (older trades before config tracking was implemented)
             </div>
           </div>
         )}

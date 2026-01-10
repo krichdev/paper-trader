@@ -216,7 +216,8 @@ class LivePaperBot:
                     'momentum_threshold': self.momentum_threshold,
                     'initial_stop': self.initial_stop,
                     'profit_target': self.profit_target,
-                    'breakeven_trigger': self.breakeven_trigger
+                    'breakeven_trigger': self.breakeven_trigger,
+                    'position_size_pct': self.position_size_pct
                 }
             })
             self.position['trade_id'] = trade_id

@@ -930,17 +930,32 @@ async def get_session_history():
     return {"sessions": sessions}
 
 
+@app.get("/api/history/bot-sessions")
+async def get_bot_session_history(user_id: int = Depends(get_current_user_id)):
+    """Get user's bot trading session history with aggregated stats"""
+    sessions = await db.get_bot_session_history(user_id)
+    return {"sessions": sessions}
+
+
 @app.get("/api/history/{event_ticker}")
-async def get_game_history(event_ticker: str):
+async def get_game_history(event_ticker: str, user_id: int = Depends(get_current_user_id)):
     """Get full history for a game including ticks and trades"""
     session = await db.get_session(event_ticker)
-    
+
     if not session:
         raise HTTPException(status_code=404, detail="Game not found")
-    
+
     ticks = await db.get_all_ticks(event_ticker)
-    trades = await db.get_bot_trades(event_ticker)
-    
+    # Get trades filtered by user
+    trades_rows = await db.pool.acquire()
+    async with trades_rows as conn:
+        rows = await conn.fetch("""
+            SELECT * FROM bot_trades
+            WHERE event_ticker = $1 AND user_id = $2
+            ORDER BY entry_tick ASC
+        """, event_ticker, user_id)
+        trades = [dict(row) for row in rows]
+
     return {
         "session": session,
         "ticks": ticks,

@@ -72,6 +72,28 @@ export async function getSessionHistory() {
   return res.json();
 }
 
+export async function getBotSessionHistory() {
+  const res = await fetch(`${API_BASE}/history/bot-sessions`, {
+    credentials: 'include'
+  });
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.detail || 'Failed to get bot session history');
+  }
+  return res.json();
+}
+
+export async function getBotSessionDetail(eventTicker: string) {
+  const res = await fetch(`${API_BASE}/history/${eventTicker}`, {
+    credentials: 'include'
+  });
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.detail || 'Failed to get session detail');
+  }
+  return res.json();
+}
+
 export function getExportUrl(eventTicker: string) {
   return `${API_BASE}/games/${eventTicker}/export`;
 }

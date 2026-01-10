@@ -8,6 +8,8 @@ import { Register } from './pages/Register'
 import { UserProfile } from './pages/UserProfile'
 import { Leaderboard } from './pages/Leaderboard'
 import { MarketDetail } from './pages/MarketDetail'
+import { BotHistory } from './pages/BotHistory'
+import { BotSessionDetail } from './pages/BotSessionDetail'
 import './index.css'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -53,6 +55,16 @@ function AppRoutes() {
       <Route path="/market/:ticker" element={
         <ProtectedRoute>
           <MarketDetail />
+        </ProtectedRoute>
+      } />
+      <Route path="/bot-history" element={
+        <ProtectedRoute>
+          <BotHistory />
+        </ProtectedRoute>
+      } />
+      <Route path="/bot-history/:ticker" element={
+        <ProtectedRoute>
+          <BotSessionDetail />
         </ProtectedRoute>
       } />
     </Routes>

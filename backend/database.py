@@ -657,9 +657,56 @@ class Database:
         """Get open trade (no exit) for a game"""
         async with self.pool.acquire() as conn:
             row = await conn.fetchrow("""
-                SELECT * FROM bot_trades 
+                SELECT * FROM bot_trades
                 WHERE event_ticker = $1 AND exit_price IS NULL
                 ORDER BY entry_tick DESC
                 LIMIT 1
             """, event_ticker)
             return dict(row) if row else None
+
+    async def get_bot_session_history(self, user_id: int) -> List[Dict]:
+        """Get aggregated bot session history for a user, grouped by event_ticker"""
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT
+                    bt.event_ticker,
+                    gs.home_team,
+                    gs.away_team,
+                    MIN(bt.entry_time) as session_start,
+                    MAX(bt.exit_time) as session_end,
+                    COUNT(*) as total_trades,
+                    COUNT(*) FILTER (WHERE bt.exit_price IS NOT NULL) as completed_trades,
+                    SUM(bt.pnl) FILTER (WHERE bt.pnl IS NOT NULL) as total_pnl,
+                    COUNT(*) FILTER (WHERE bt.pnl > 0) as wins,
+                    COUNT(*) FILTER (WHERE bt.pnl < 0) as losses,
+                    AVG(bt.pnl) FILTER (WHERE bt.pnl IS NOT NULL) as avg_pnl,
+                    MAX(bt.pnl) as best_trade,
+                    MIN(bt.pnl) as worst_trade,
+                    (SELECT config_snapshot FROM bot_trades
+                     WHERE event_ticker = bt.event_ticker AND user_id = $1
+                     ORDER BY entry_time ASC LIMIT 1) as bot_config
+                FROM bot_trades bt
+                LEFT JOIN game_sessions gs ON bt.event_ticker = gs.event_ticker
+                WHERE bt.user_id = $1
+                GROUP BY bt.event_ticker, gs.home_team, gs.away_team
+                ORDER BY session_start DESC
+            """, user_id)
+
+            result = []
+            for row in rows:
+                session = dict(row)
+                # Calculate win rate
+                if session['completed_trades'] > 0:
+                    session['win_rate'] = (session['wins'] / session['completed_trades']) * 100
+                else:
+                    session['win_rate'] = 0
+
+                # Convert timestamps to ISO strings
+                if session['session_start']:
+                    session['session_start'] = session['session_start'].isoformat()
+                if session['session_end']:
+                    session['session_end'] = session['session_end'].isoformat()
+
+                result.append(session)
+
+            return result

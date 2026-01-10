@@ -46,12 +46,13 @@ export function UserProfile() {
   const [loading, setLoading] = useState(true);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [resetting, setResetting] = useState(false);
-  const [botConfig, setBotConfig] = useState<BotConfig>({
-    momentum_threshold: 8,
-    initial_stop: 8,
-    profit_target: 15,
-    breakeven_trigger: 5,
-    position_size_pct: 0.5
+  // Use string values for inputs to allow intermediate states like empty or "01"
+  const [inputValues, setInputValues] = useState({
+    momentum_threshold: '8',
+    initial_stop: '8',
+    profit_target: '15',
+    breakeven_trigger: '5',
+    position_size_pct: '50'
   });
   const [savingConfig, setSavingConfig] = useState(false);
 
@@ -79,7 +80,14 @@ export function UserProfile() {
   const loadBotConfig = async () => {
     try {
       const config = await getUserDefaultBotConfig();
-      setBotConfig(config);
+      // Update input string values
+      setInputValues({
+        momentum_threshold: config.momentum_threshold.toString(),
+        initial_stop: config.initial_stop.toString(),
+        profit_target: config.profit_target.toString(),
+        breakeven_trigger: config.breakeven_trigger.toString(),
+        position_size_pct: (config.position_size_pct * 100).toString()
+      });
     } catch (e) {
       console.error('Failed to load bot config:', e);
     }
@@ -88,7 +96,23 @@ export function UserProfile() {
   const handleSaveBotConfig = async () => {
     setSavingConfig(true);
     try {
-      await updateUserDefaultBotConfig(botConfig);
+      // Parse input values to numbers, defaulting to 0 for empty/invalid
+      const configToSave: BotConfig = {
+        momentum_threshold: parseInt(inputValues.momentum_threshold, 10) || 0,
+        initial_stop: parseInt(inputValues.initial_stop, 10) || 0,
+        profit_target: parseInt(inputValues.profit_target, 10) || 0,
+        breakeven_trigger: parseInt(inputValues.breakeven_trigger, 10) || 0,
+        position_size_pct: (parseFloat(inputValues.position_size_pct) || 0) / 100
+      };
+      await updateUserDefaultBotConfig(configToSave);
+      // Update input values to clean up any invalid entries
+      setInputValues({
+        momentum_threshold: configToSave.momentum_threshold.toString(),
+        initial_stop: configToSave.initial_stop.toString(),
+        profit_target: configToSave.profit_target.toString(),
+        breakeven_trigger: configToSave.breakeven_trigger.toString(),
+        position_size_pct: (configToSave.position_size_pct * 100).toString()
+      });
       alert('Default bot configuration saved successfully!');
     } catch (e: any) {
       console.error('Failed to save bot config:', e);
@@ -270,24 +294,8 @@ export function UserProfile() {
               <label className="block text-slate-400 text-sm mb-1">Momentum Threshold (¢)</label>
               <input
                 type="number"
-                value={botConfig.momentum_threshold}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  // Allow empty string or valid number (including while typing)
-                  if (value === '') {
-                    setBotConfig({ ...botConfig, momentum_threshold: 0 });
-                  } else {
-                    const parsed = parseInt(value, 10);
-                    if (!isNaN(parsed)) {
-                      setBotConfig({ ...botConfig, momentum_threshold: parsed });
-                    }
-                  }
-                }}
-                onBlur={(e) => {
-                  // Clean up on blur
-                  const value = parseInt(e.target.value, 10);
-                  setBotConfig({ ...botConfig, momentum_threshold: isNaN(value) ? 0 : value });
-                }}
+                value={inputValues.momentum_threshold}
+                onChange={(e) => setInputValues({ ...inputValues, momentum_threshold: e.target.value })}
                 className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
                 min="0"
               />
@@ -297,22 +305,8 @@ export function UserProfile() {
               <label className="block text-slate-400 text-sm mb-1">Initial Stop Loss (¢)</label>
               <input
                 type="number"
-                value={botConfig.initial_stop}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (value === '') {
-                    setBotConfig({ ...botConfig, initial_stop: 0 });
-                  } else {
-                    const parsed = parseInt(value, 10);
-                    if (!isNaN(parsed)) {
-                      setBotConfig({ ...botConfig, initial_stop: parsed });
-                    }
-                  }
-                }}
-                onBlur={(e) => {
-                  const value = parseInt(e.target.value, 10);
-                  setBotConfig({ ...botConfig, initial_stop: isNaN(value) ? 0 : value });
-                }}
+                value={inputValues.initial_stop}
+                onChange={(e) => setInputValues({ ...inputValues, initial_stop: e.target.value })}
                 className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
                 min="0"
               />
@@ -322,22 +316,8 @@ export function UserProfile() {
               <label className="block text-slate-400 text-sm mb-1">Profit Target (¢)</label>
               <input
                 type="number"
-                value={botConfig.profit_target}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (value === '') {
-                    setBotConfig({ ...botConfig, profit_target: 0 });
-                  } else {
-                    const parsed = parseInt(value, 10);
-                    if (!isNaN(parsed)) {
-                      setBotConfig({ ...botConfig, profit_target: parsed });
-                    }
-                  }
-                }}
-                onBlur={(e) => {
-                  const value = parseInt(e.target.value, 10);
-                  setBotConfig({ ...botConfig, profit_target: isNaN(value) ? 0 : value });
-                }}
+                value={inputValues.profit_target}
+                onChange={(e) => setInputValues({ ...inputValues, profit_target: e.target.value })}
                 className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
                 min="0"
               />
@@ -347,22 +327,8 @@ export function UserProfile() {
               <label className="block text-slate-400 text-sm mb-1">Breakeven Trigger (¢)</label>
               <input
                 type="number"
-                value={botConfig.breakeven_trigger}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (value === '') {
-                    setBotConfig({ ...botConfig, breakeven_trigger: 0 });
-                  } else {
-                    const parsed = parseInt(value, 10);
-                    if (!isNaN(parsed)) {
-                      setBotConfig({ ...botConfig, breakeven_trigger: parsed });
-                    }
-                  }
-                }}
-                onBlur={(e) => {
-                  const value = parseInt(e.target.value, 10);
-                  setBotConfig({ ...botConfig, breakeven_trigger: isNaN(value) ? 0 : value });
-                }}
+                value={inputValues.breakeven_trigger}
+                onChange={(e) => setInputValues({ ...inputValues, breakeven_trigger: e.target.value })}
                 className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
                 min="0"
               />
@@ -372,22 +338,8 @@ export function UserProfile() {
               <label className="block text-slate-400 text-sm mb-1">Position Size (%)</label>
               <input
                 type="number"
-                value={botConfig.position_size_pct * 100}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (value === '') {
-                    setBotConfig({ ...botConfig, position_size_pct: 0 });
-                  } else {
-                    const parsed = parseFloat(value);
-                    if (!isNaN(parsed)) {
-                      setBotConfig({ ...botConfig, position_size_pct: parsed / 100 });
-                    }
-                  }
-                }}
-                onBlur={(e) => {
-                  const value = parseFloat(e.target.value);
-                  setBotConfig({ ...botConfig, position_size_pct: isNaN(value) ? 0 : value / 100 });
-                }}
+                value={inputValues.position_size_pct}
+                onChange={(e) => setInputValues({ ...inputValues, position_size_pct: e.target.value })}
                 className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
                 step="5"
                 min="0"

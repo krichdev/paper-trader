@@ -727,7 +727,26 @@ async def start_live_bot(
     initial_stop: int = 8,
     profit_target: int = 15,
     breakeven_trigger: int = 5,
-    position_size_pct: float = 0.5
+    position_size_pct: float = 0.5,
+    # Time-based dynamic exits
+    enable_time_scaling: bool = True,
+    early_game_stop_multiplier: float = 1.5,
+    late_game_stop_multiplier: float = 0.7,
+    early_game_target_multiplier: float = 1.3,
+    late_game_target_multiplier: float = 0.8,
+    # Game context factors
+    enable_game_context: bool = True,
+    possession_bias_cents: int = 2,
+    score_volatility_multiplier: float = 1.2,
+    favorite_fade_threshold: int = 65,
+    underdog_support_threshold: int = 35,
+    # DCA parameters
+    enable_dca: bool = False,
+    dca_max_additions: int = 2,
+    dca_trigger_cents: int = 5,
+    dca_size_multiplier: float = 0.75,
+    dca_min_time_remaining: int = 600,
+    dca_max_total_risk_pct: float = 0.75
 ):
     """Start live paper trading bot"""
 
@@ -769,7 +788,26 @@ async def start_live_bot(
         profit_target=profit_target,
         breakeven_trigger=breakeven_trigger,
         position_size_pct=position_size_pct,
-        user_id=user_id
+        user_id=user_id,
+        # Time-based dynamic exits
+        enable_time_scaling=enable_time_scaling,
+        early_game_stop_multiplier=early_game_stop_multiplier,
+        late_game_stop_multiplier=late_game_stop_multiplier,
+        early_game_target_multiplier=early_game_target_multiplier,
+        late_game_target_multiplier=late_game_target_multiplier,
+        # Game context factors
+        enable_game_context=enable_game_context,
+        possession_bias_cents=possession_bias_cents,
+        score_volatility_multiplier=score_volatility_multiplier,
+        favorite_fade_threshold=favorite_fade_threshold,
+        underdog_support_threshold=underdog_support_threshold,
+        # DCA parameters
+        enable_dca=enable_dca,
+        dca_max_additions=dca_max_additions,
+        dca_trigger_cents=dca_trigger_cents,
+        dca_size_multiplier=dca_size_multiplier,
+        dca_min_time_remaining=dca_min_time_remaining,
+        dca_max_total_risk_pct=dca_max_total_risk_pct
     )
 
     # Initialize bot state from database (existing trades, open positions)

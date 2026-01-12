@@ -167,6 +167,10 @@ class Database:
                                    WHERE table_name='game_sessions' AND column_name='user_id') THEN
                         ALTER TABLE game_sessions ADD COLUMN user_id INT REFERENCES users(id);
                     END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                                   WHERE table_name='game_sessions' AND column_name='opening_prices') THEN
+                        ALTER TABLE game_sessions ADD COLUMN opening_prices JSONB;
+                    END IF;
                 END $$;
             """)
             
@@ -569,7 +573,38 @@ class Database:
             await conn.execute("""
                 UPDATE game_sessions SET live_bot_active = FALSE WHERE event_ticker = $1
             """, event_ticker)
-    
+
+    async def save_opening_prices(self, event_ticker: str, home_price: int, away_price: int) -> None:
+        """Save opening market prices for game context analysis"""
+        async with self.pool.acquire() as conn:
+            await conn.execute("""
+                UPDATE game_sessions SET opening_prices = $2 WHERE event_ticker = $1
+            """, event_ticker, json.dumps({'home_price': home_price, 'away_price': away_price}))
+
+    async def update_trade_dca(self, trade_id: int, dca_data: Dict) -> None:
+        """Update trade with DCA information"""
+        async with self.pool.acquire() as conn:
+            # Get existing config_snapshot
+            row = await conn.fetchrow("""
+                SELECT config_snapshot FROM bot_trades WHERE id = $1
+            """, trade_id)
+
+            if row:
+                config_snapshot = row['config_snapshot'] or {}
+                if isinstance(config_snapshot, str):
+                    config_snapshot = json.loads(config_snapshot)
+
+                # Update with DCA data
+                config_snapshot.update(dca_data)
+
+                # Also update total contracts count
+                await conn.execute("""
+                    UPDATE bot_trades SET
+                        config_snapshot = $2,
+                        contracts = $3
+                    WHERE id = $1
+                """, trade_id, json.dumps(config_snapshot), dca_data.get('total_contracts'))
+
     # ========================================================================
     # TICK METHODS
     # ========================================================================

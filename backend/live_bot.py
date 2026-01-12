@@ -20,7 +20,26 @@ class LivePaperBot:
         profit_target: int = 15,
         breakeven_trigger: int = 5,
         position_size_pct: float = 0.5,
-        user_id: Optional[int] = None
+        user_id: Optional[int] = None,
+        # Time-based dynamic exits
+        enable_time_scaling: bool = True,
+        early_game_stop_multiplier: float = 1.5,
+        late_game_stop_multiplier: float = 0.7,
+        early_game_target_multiplier: float = 1.3,
+        late_game_target_multiplier: float = 0.8,
+        # Game context factors
+        enable_game_context: bool = True,
+        possession_bias_cents: int = 2,
+        score_volatility_multiplier: float = 1.2,
+        favorite_fade_threshold: int = 65,
+        underdog_support_threshold: int = 35,
+        # DCA parameters
+        enable_dca: bool = False,
+        dca_max_additions: int = 2,
+        dca_trigger_cents: int = 5,
+        dca_size_multiplier: float = 0.75,
+        dca_min_time_remaining: int = 600,
+        dca_max_total_risk_pct: float = 0.75
     ):
         self.event_ticker = event_ticker
         self.db = db
@@ -44,6 +63,33 @@ class LivePaperBot:
         self.breakeven_trigger = breakeven_trigger
         self.position_size_pct = position_size_pct
 
+        # Time-based dynamic exits
+        self.enable_time_scaling = enable_time_scaling
+        self.early_game_stop_multiplier = early_game_stop_multiplier
+        self.late_game_stop_multiplier = late_game_stop_multiplier
+        self.early_game_target_multiplier = early_game_target_multiplier
+        self.late_game_target_multiplier = late_game_target_multiplier
+
+        # Game context factors
+        self.enable_game_context = enable_game_context
+        self.possession_bias_cents = possession_bias_cents
+        self.score_volatility_multiplier = score_volatility_multiplier
+        self.favorite_fade_threshold = favorite_fade_threshold
+        self.underdog_support_threshold = underdog_support_threshold
+
+        # Opening price tracking
+        self.opening_home_price: Optional[int] = None
+        self.opening_away_price: Optional[int] = None
+        self.first_tick_received: bool = False
+
+        # DCA parameters
+        self.enable_dca = enable_dca
+        self.dca_max_additions = dca_max_additions
+        self.dca_trigger_cents = dca_trigger_cents
+        self.dca_size_multiplier = dca_size_multiplier
+        self.dca_min_time_remaining = dca_min_time_remaining
+        self.dca_max_total_risk_pct = dca_max_total_risk_pct
+
         # State
         self.is_active = True
         self.total_trades = 0
@@ -66,6 +112,16 @@ class LivePaperBot:
             if saved_starting_bankroll is not None:
                 self.starting_bankroll = saved_starting_bankroll
 
+            # Load opening prices if they exist
+            opening_prices = session.get('opening_prices')
+            if opening_prices:
+                if isinstance(opening_prices, str):
+                    opening_prices = json.loads(opening_prices)
+                self.opening_home_price = opening_prices.get('home_price')
+                self.opening_away_price = opening_prices.get('away_price')
+                if self.opening_home_price is not None:
+                    self.first_tick_received = True
+
         # Check for existing trades
         trades = await self.db.get_bot_trades(self.event_ticker)
 
@@ -79,6 +135,11 @@ class LivePaperBot:
             # Check for open position
             open_trade = await self.db.get_open_trade(self.event_ticker)
             if open_trade:
+                # Get DCA info from config_snapshot if available
+                config_snapshot = open_trade.get('config_snapshot', {})
+                if isinstance(config_snapshot, str):
+                    config_snapshot = json.loads(config_snapshot)
+
                 # Reconstruct position state
                 self.position = {
                     'side': open_trade['side'],
@@ -89,15 +150,25 @@ class LivePaperBot:
                     'entry_time': open_trade['entry_time'],
                     'trade_id': open_trade['id'],
                     'high': open_trade['entry_price'] if open_trade['side'] == 'long' else None,
-                    'low': open_trade['entry_price'] if open_trade['side'] == 'short' else None
+                    'low': open_trade['entry_price'] if open_trade['side'] == 'short' else None,
+                    # DCA fields from config_snapshot
+                    'dca_count': config_snapshot.get('dca_count', 0),
+                    'avg_entry_price': config_snapshot.get('avg_entry_price', open_trade['entry_price']),
+                    'total_cost': config_snapshot.get('total_cost'),
+                    'dca_history': config_snapshot.get('dca_history', [])
                 }
 
-                # Recalculate cost from contracts
-                if self.position['side'] == 'long':
-                    self.position['cost'] = self.position['contracts'] * self.position['entry_price'] / 100
+                # Recalculate cost from contracts if total_cost not available
+                if self.position['total_cost'] is None:
+                    if self.position['side'] == 'long':
+                        self.position['cost'] = self.position['contracts'] * self.position['entry_price'] / 100
+                        self.position['total_cost'] = self.position['cost']
+                    else:
+                        no_price = 100 - self.position['entry_price']
+                        self.position['cost'] = self.position['contracts'] * no_price / 100
+                        self.position['total_cost'] = self.position['cost']
                 else:
-                    no_price = 100 - self.position['entry_price']
-                    self.position['cost'] = self.position['contracts'] * no_price / 100
+                    self.position['cost'] = self.position['total_cost']
 
         # Save initial state to database
         await self.db.save_live_bot_state(
@@ -122,6 +193,10 @@ class LivePaperBot:
         if home_price == 0:
             return
 
+        # Capture opening prices on first tick
+        if not self.first_tick_received:
+            await self._store_opening_price(tick)
+
         # Update price history
         self.price_history.append(home_price)
         if len(self.price_history) > 10:
@@ -130,6 +205,10 @@ class LivePaperBot:
         # Check exit first
         if self.position:
             await self._check_exit(home_price, tick)
+
+            # Check for DCA opportunity (after exit check, while position still exists)
+            if self.position:  # Position might have been closed by exit check
+                await self._check_dca(home_price, tick)
 
         # Check entry
         elif self.bankroll > 1:
@@ -162,6 +241,24 @@ class LivePaperBot:
         if len(self.price_history) < 3:
             return
 
+        # Game context filters
+        if self.enable_game_context:
+            context = self._calculate_game_context_score(tick)
+
+            # Don't enter if <5 mins remaining (too risky for new position)
+            if context['time_remaining'] < 300:
+                return
+
+            # Apply market sentiment filter
+            momentum_required = self.momentum_threshold
+
+            if context['market_sentiment'] == 'fade':
+                # Fading favorites requires stronger momentum
+                momentum_required = self.momentum_threshold + 2
+
+        else:
+            momentum_required = self.momentum_threshold
+
         momentum = self.price_history[-1] - self.price_history[-3]
         position_size = self.bankroll * self.position_size_pct
 
@@ -170,7 +267,7 @@ class LivePaperBot:
         cost = 0.0
 
         # Long entry
-        if momentum >= self.momentum_threshold:
+        if momentum >= momentum_required:
             contracts = int(position_size / price * 100)
             if contracts < 1:
                 return
@@ -178,7 +275,7 @@ class LivePaperBot:
             side = 'long'
 
         # Short entry
-        elif momentum <= -self.momentum_threshold:
+        elif momentum <= -momentum_required:
             no_price = 100 - price
             contracts = int(position_size / no_price * 100)
             if contracts < 1:
@@ -195,7 +292,12 @@ class LivePaperBot:
                 'entry_tick': tick['tick'],
                 'entry_time': datetime.now(timezone.utc),
                 'high': price if side == 'long' else None,
-                'low': price if side == 'short' else None
+                'low': price if side == 'short' else None,
+                # DCA fields
+                'dca_count': 0,
+                'avg_entry_price': price,
+                'total_cost': cost,
+                'dca_history': []
             }
             self.bankroll -= cost
 
@@ -242,38 +344,45 @@ class LivePaperBot:
         pos = self.position
         exit_reason = None
 
+        # Use average entry price if DCA position, otherwise use original entry
+        entry_price = pos.get('avg_entry_price', pos['entry_price'])
+
+        # Calculate dynamic stops and targets based on time remaining
+        current_stop = self._calculate_dynamic_stop(self.initial_stop, tick)
+        current_target = self._calculate_dynamic_target(self.profit_target, tick)
+
         if pos['side'] == 'long':
-            gain = price - pos['entry_price']
+            gain = price - entry_price
             pos['high'] = max(pos.get('high', pos['entry_price']), price)
 
-            # Determine stop price
+            # Determine stop price (using dynamic stop)
             if gain >= self.breakeven_trigger:
-                stop_price = pos['entry_price']
+                stop_price = entry_price
                 stop_type = 'BREAKEVEN'
             else:
-                stop_price = pos['entry_price'] - self.initial_stop
+                stop_price = entry_price - current_stop
                 stop_type = 'STOP'
 
-            # Check exit conditions
-            if gain >= self.profit_target:
+            # Check exit conditions (using dynamic target)
+            if gain >= current_target:
                 exit_reason = 'PROFIT'
             elif price <= stop_price:
                 exit_reason = stop_type
 
         elif pos['side'] == 'short':
-            gain = pos['entry_price'] - price
+            gain = entry_price - price
             pos['low'] = min(pos.get('low', pos['entry_price']), price)
 
-            # Determine stop price
+            # Determine stop price (using dynamic stop)
             if gain >= self.breakeven_trigger:
-                stop_price = pos['entry_price']
+                stop_price = entry_price
                 stop_type = 'BREAKEVEN'
             else:
-                stop_price = pos['entry_price'] + self.initial_stop
+                stop_price = entry_price + current_stop
                 stop_type = 'STOP'
 
-            # Check exit conditions
-            if gain >= self.profit_target:
+            # Check exit conditions (using dynamic target)
+            if gain >= current_target:
                 exit_reason = 'PROFIT'
             elif price >= stop_price:
                 exit_reason = stop_type
@@ -471,3 +580,395 @@ class LivePaperBot:
 
         # Mark as stopped in database
         await self.db.stop_live_bot(self.event_ticker)
+
+    # ============================================================================
+    # HELPER METHODS - Time and Game Context
+    # ============================================================================
+
+    def _calculate_time_remaining(self, quarter: int, clock: str) -> int:
+        """
+        Calculate total seconds remaining in game.
+
+        Football quarters are 15 minutes = 900 seconds each.
+        Total game = 3600 seconds.
+
+        Args:
+            quarter: Current quarter (0-4, where 0=pregame, 5=final)
+            clock: Time remaining in quarter (format: "12:34")
+
+        Returns:
+            Seconds remaining in game (0-3600)
+        """
+        # Edge cases
+        if quarter == 0:  # Pregame
+            return 3600
+        if quarter >= 5:  # Final
+            return 0
+
+        # Parse clock string
+        clock_seconds = 0
+        try:
+            if ':' in str(clock):
+                parts = str(clock).strip().split(':')
+                mins = int(parts[0])
+                secs = int(parts[1]) if len(parts) > 1 else 0
+                clock_seconds = mins * 60 + secs
+            else:
+                # If no colon, assume it's already in seconds
+                clock_seconds = int(float(str(clock)))
+        except:
+            # Default to full quarter if parse fails
+            clock_seconds = 900
+
+        # Calculate remaining time
+        # Quarters after current quarter
+        quarters_after_current = 4 - quarter
+        time_remaining = (quarters_after_current * 900) + clock_seconds
+
+        return max(0, min(3600, time_remaining))
+
+    def _calculate_dynamic_stop(self, base_stop: int, tick: Dict) -> int:
+        """
+        Calculate stop loss adjusted for time remaining.
+
+        Args:
+            base_stop: Base stop loss in cents (e.g., 8)
+            tick: Current tick data with quarter and clock
+
+        Returns:
+            Adjusted stop loss in cents (minimum 3, maximum 20)
+        """
+        if not self.enable_time_scaling:
+            return base_stop
+
+        time_remaining = self._calculate_time_remaining(
+            tick.get('quarter', 0),
+            tick.get('clock', '15:00')
+        )
+
+        # Calculate time ratio (0.0 = end of game, 1.0 = start)
+        time_ratio = time_remaining / 3600
+
+        # Linear interpolation between late game and early game multipliers
+        # Early game (time_ratio > 0.5): use early_game_multiplier
+        # Late game (time_ratio < 0.5): interpolate to late_game_multiplier
+        if time_ratio >= 0.5:
+            # First half: use early game multiplier
+            multiplier = self.early_game_stop_multiplier
+        else:
+            # Second half: interpolate from 1.0 to late_game_multiplier
+            # At halftime (0.5), use 1.0
+            # At end (0.0), use late_game_multiplier
+            progress = (0.5 - time_ratio) / 0.5  # 0.0 at halftime, 1.0 at end
+            multiplier = 1.0 + progress * (self.late_game_stop_multiplier - 1.0)
+
+        adjusted_stop = int(base_stop * multiplier)
+
+        # Apply bounds
+        return max(3, min(20, adjusted_stop))
+
+    def _calculate_dynamic_target(self, base_target: int, tick: Dict) -> int:
+        """
+        Calculate profit target adjusted for time remaining.
+
+        Args:
+            base_target: Base profit target in cents (e.g., 15)
+            tick: Current tick data with quarter and clock
+
+        Returns:
+            Adjusted profit target in cents (minimum 5, maximum 30)
+        """
+        if not self.enable_time_scaling:
+            return base_target
+
+        time_remaining = self._calculate_time_remaining(
+            tick.get('quarter', 0),
+            tick.get('clock', '15:00')
+        )
+
+        # Calculate time ratio
+        time_ratio = time_remaining / 3600
+
+        # Similar logic to stops but inverse
+        if time_ratio >= 0.5:
+            # First half: use early game multiplier (higher targets)
+            multiplier = self.early_game_target_multiplier
+        else:
+            # Second half: interpolate from 1.0 to late_game_multiplier
+            progress = (0.5 - time_ratio) / 0.5
+            multiplier = 1.0 + progress * (self.late_game_target_multiplier - 1.0)
+
+        adjusted_target = int(base_target * multiplier)
+
+        # Apply bounds
+        return max(5, min(30, adjusted_target))
+
+    async def _store_opening_price(self, tick: Dict) -> None:
+        """
+        Store the first tick's price as market opening sentiment.
+
+        Args:
+            tick: First tick data with home_price and away_price
+        """
+        if self.first_tick_received:
+            return
+
+        self.opening_home_price = tick.get('home_price', 50)
+        self.opening_away_price = tick.get('away_price', 50)
+        self.first_tick_received = True
+
+        # Save to database for persistence across bot restarts
+        await self.db.save_opening_prices(
+            self.event_ticker,
+            self.opening_home_price,
+            self.opening_away_price
+        )
+
+    def _get_market_bias(self, current_price: int, side: str) -> str:
+        """
+        Determine if we're trading with or against opening market sentiment.
+
+        Args:
+            current_price: Current home team price
+            side: Trade side ('long' or 'short')
+
+        Returns:
+            "fade_favorite" | "support_underdog" | "neutral"
+        """
+        if self.opening_home_price is None:
+            return "neutral"
+
+        opening = self.opening_home_price
+
+        # Determine if opening indicated favorite or underdog
+        if opening >= self.favorite_fade_threshold:
+            # Home was strong favorite at open
+            if side == 'long':
+                return "fade_favorite"  # Going long on favorite
+            else:
+                return "support_underdog"  # Shorting favorite = supporting away
+        elif opening <= self.underdog_support_threshold:
+            # Home was strong underdog at open
+            if side == 'long':
+                return "support_underdog"  # Going long on underdog
+            else:
+                return "fade_favorite"  # Shorting underdog = supporting favorite
+
+        return "neutral"
+
+    def _calculate_game_context_score(self, tick: Dict) -> Dict:
+        """
+        Analyze current game state and return context factors.
+
+        Args:
+            tick: Current tick data
+
+        Returns:
+            Dict with:
+                - time_remaining: seconds left in game
+                - time_quartile: 0-3 (Q1-Q4 equivalent)
+                - possession_factor: 1.0-1.2 based on possession
+                - volatility_factor: 1.0-1.5 based on score differential
+                - market_sentiment: "fade" or "follow"
+        """
+        time_remaining = self._calculate_time_remaining(
+            tick.get('quarter', 0),
+            tick.get('clock', '15:00')
+        )
+
+        # Calculate which quartile we're in
+        time_quartile = min(3, int((3600 - time_remaining) / 900))
+
+        # Possession factor (favor team with ball)
+        possession_factor = 1.0
+        if self.position and self.enable_game_context:
+            possession_team = tick.get('possession_team_id', '')
+            home_team_id = tick.get('home_team', '')
+
+            if possession_team and home_team_id:
+                # If we're long and home has possession, or short and away has possession
+                has_favorable_possession = (
+                    (self.position['side'] == 'long' and possession_team == home_team_id) or
+                    (self.position['side'] == 'short' and possession_team != home_team_id)
+                )
+                if has_favorable_possession:
+                    possession_factor = 1.0 + (self.possession_bias_cents / 100.0)
+
+        # Volatility factor based on score differential
+        volatility_factor = 1.0
+        score_diff = abs(tick.get('score_diff', 0))
+        if score_diff > 14:
+            # Blowout: lower volatility (garbage time)
+            volatility_factor = 0.9
+        elif 7 <= score_diff <= 14:
+            # Moderate lead: higher volatility (losing team pressing)
+            volatility_factor = self.score_volatility_multiplier
+
+        # Market sentiment
+        current_price = tick.get('home_price', 50)
+        market_sentiment = "follow"
+        if self.opening_home_price:
+            if self.opening_home_price >= self.favorite_fade_threshold:
+                market_sentiment = "fade"
+            elif self.opening_home_price <= self.underdog_support_threshold:
+                market_sentiment = "follow"
+
+        return {
+            'time_remaining': time_remaining,
+            'time_quartile': time_quartile,
+            'possession_factor': possession_factor,
+            'volatility_factor': volatility_factor,
+            'market_sentiment': market_sentiment
+        }
+
+    # ============================================================================
+    # HELPER METHODS - Dollar Cost Averaging (DCA)
+    # ============================================================================
+
+    async def _check_dca(self, price: int, tick: Dict):
+        """
+        Check if we should add to existing position (dollar cost averaging).
+
+        Args:
+            price: Current price
+            tick: Current tick data
+        """
+        if not self.enable_dca:
+            return
+
+        if not self.position:
+            return
+
+        # Check DCA limits
+        dca_count = self.position.get('dca_count', 0)
+        if dca_count >= self.dca_max_additions:
+            return
+
+        # Check time remaining
+        context = self._calculate_game_context_score(tick)
+        if context['time_remaining'] < self.dca_min_time_remaining:
+            return
+
+        # Check if price moved against us enough
+        avg_entry = self.position.get('avg_entry_price', self.position['entry_price'])
+
+        if self.position['side'] == 'long':
+            loss_from_avg = avg_entry - price
+            if loss_from_avg < self.dca_trigger_cents:
+                return  # Not enough adverse movement
+        else:  # short
+            loss_from_avg = price - avg_entry
+            if loss_from_avg < self.dca_trigger_cents:
+                return
+
+        # Calculate DCA size (decreasing with each addition)
+        base_size = self.starting_bankroll * self.position_size_pct
+        dca_size = base_size * (self.dca_size_multiplier ** (dca_count + 1))
+
+        # Check total risk limit
+        total_cost = self.position.get('total_cost', self.position['cost'])
+        potential_total_cost = total_cost + dca_size
+        if potential_total_cost > self.starting_bankroll * self.dca_max_total_risk_pct:
+            return  # Would exceed risk limit
+
+        # Check if we have enough bankroll
+        if dca_size > self.bankroll:
+            return
+
+        # Execute DCA add
+        await self._execute_dca_addition(price, tick, dca_size)
+
+    async def _execute_dca_addition(self, price: int, tick: Dict, dca_size: float):
+        """
+        Add to existing position (dollar cost averaging).
+
+        Args:
+            price: Current price to add at
+            tick: Current tick data
+            dca_size: Amount to add in dollars
+        """
+        pos = self.position
+
+        # Calculate contracts for this addition
+        if pos['side'] == 'long':
+            new_contracts = int(dca_size / price * 100)
+            if new_contracts < 1:
+                return
+            add_cost = new_contracts * price / 100
+        else:  # short
+            no_price = 100 - price
+            new_contracts = int(dca_size / no_price * 100)
+            if new_contracts < 1:
+                return
+            add_cost = new_contracts * no_price / 100
+
+        # Get current totals
+        old_total_cost = pos.get('total_cost', pos['cost'])
+        old_contracts = pos['contracts']
+
+        # Update position
+        pos['contracts'] += new_contracts
+        pos['total_cost'] = old_total_cost + add_cost
+
+        # Recalculate average entry price (weighted average)
+        if pos['side'] == 'long':
+            # For longs: weighted average of prices
+            total_cost_dollars = pos['total_cost']
+            total_contracts = pos['contracts']
+            pos['avg_entry_price'] = int((total_cost_dollars * 100) / total_contracts)
+        else:  # short
+            # For shorts: weighted average of "no" prices
+            total_cost_dollars = pos['total_cost']
+            total_contracts = pos['contracts']
+            avg_no_price = (total_cost_dollars * 100) / total_contracts
+            pos['avg_entry_price'] = int(100 - avg_no_price)
+
+        # Record DCA event
+        dca_count = pos.get('dca_count', 0)
+        pos['dca_count'] = dca_count + 1
+
+        if 'dca_history' not in pos:
+            pos['dca_history'] = []
+
+        pos['dca_history'].append({
+            'price': price,
+            'contracts': new_contracts,
+            'cost': add_cost,
+            'tick': tick['tick']
+        })
+
+        # Deduct from bankroll
+        self.bankroll -= add_cost
+
+        # Update database - save DCA info in config_snapshot
+        await self.db.update_trade_dca(pos['trade_id'], {
+            'avg_entry_price': pos['avg_entry_price'],
+            'total_contracts': pos['contracts'],
+            'total_cost': pos['total_cost'],
+            'dca_count': pos['dca_count'],
+            'dca_history': pos['dca_history']
+        })
+
+        # Update bankroll in database
+        await self.db.update_live_bot_bankroll(self.event_ticker, self.bankroll)
+
+        # Broadcast DCA event
+        if self.broadcast_fn:
+            await self.broadcast_fn({
+                "type": "live_bot_dca",
+                "event_ticker": self.event_ticker,
+                "data": {
+                    "side": pos['side'],
+                    "add_price": price,
+                    "add_contracts": new_contracts,
+                    "add_cost": add_cost,
+                    "new_avg_entry": pos['avg_entry_price'],
+                    "total_contracts": pos['contracts'],
+                    "dca_count": pos['dca_count'],
+                    "bankroll": self.bankroll,
+                    "time_remaining": self._calculate_time_remaining(
+                        tick.get('quarter', 0),
+                        tick.get('clock', '15:00')
+                    )
+                }
+            })

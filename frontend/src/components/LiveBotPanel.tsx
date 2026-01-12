@@ -67,8 +67,28 @@ export function LiveBotPanel({
     initial_stop: 8,
     profit_target: 15,
     breakeven_trigger: 5,
-    position_size_pct: 0.5
+    position_size_pct: 0.5,
+    // Time-based dynamic exits
+    enable_time_scaling: true,
+    early_game_stop_multiplier: 1.5,
+    late_game_stop_multiplier: 0.7,
+    early_game_target_multiplier: 1.3,
+    late_game_target_multiplier: 0.8,
+    // Game context factors
+    enable_game_context: true,
+    possession_bias_cents: 2,
+    score_volatility_multiplier: 1.2,
+    favorite_fade_threshold: 65,
+    underdog_support_threshold: 35,
+    // DCA parameters
+    enable_dca: false,
+    dca_max_additions: 2,
+    dca_trigger_cents: 5,
+    dca_size_multiplier: 0.75,
+    dca_min_time_remaining: 600,
+    dca_max_total_risk_pct: 0.75
   });
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   // Update last update time when wallet changes
   useEffect(() => {
@@ -236,9 +256,12 @@ export function LiveBotPanel({
 
       {/* Config Panel */}
       {showConfig && (
-        <div className="mb-4 p-4 bg-slate-700/50 rounded-lg border border-slate-600">
+        <div className="mb-4 p-4 bg-slate-700/50 rounded-lg border border-slate-600 max-h-[600px] overflow-y-auto">
           <h4 className="font-bold mb-3 text-sm">Bot Configuration</h4>
-          <div className="space-y-2 text-sm">
+
+          {/* Basic Configuration */}
+          <div className="space-y-2 text-sm mb-4">
+            <div className="text-xs font-bold text-purple-400 mb-2">BASIC SETTINGS</div>
             {!isRunning && (
               <div>
                 <label className="block text-slate-400 mb-1">Bankroll ($)</label>
@@ -269,6 +292,7 @@ export function LiveBotPanel({
                 onChange={(e) => setConfig({ ...config, initial_stop: parseInt(e.target.value) })}
                 className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded"
               />
+              <p className="text-xs text-slate-500 mt-1">Base stop loss (scales with time if enabled)</p>
             </div>
             <div>
               <label className="block text-slate-400 mb-1">Profit Target (¢)</label>
@@ -278,6 +302,7 @@ export function LiveBotPanel({
                 onChange={(e) => setConfig({ ...config, profit_target: parseInt(e.target.value) })}
                 className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded"
               />
+              <p className="text-xs text-slate-500 mt-1">Base profit target (scales with time if enabled)</p>
             </div>
             <div>
               <label className="block text-slate-400 mb-1">Breakeven Trigger (¢)</label>
@@ -299,6 +324,222 @@ export function LiveBotPanel({
               />
             </div>
           </div>
+
+          {/* Advanced Configuration Toggle */}
+          <button
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="w-full py-2 px-3 bg-slate-800 hover:bg-slate-700 rounded-lg text-sm font-medium transition-colors flex items-center justify-between mb-3"
+          >
+            <span>Advanced Settings</span>
+            <span className="text-xs">{showAdvanced ? '▼' : '▶'}</span>
+          </button>
+
+          {/* Advanced Configuration */}
+          {showAdvanced && (
+            <div className="space-y-4">
+              {/* Time-Based Dynamic Exits */}
+              <div className="p-3 bg-slate-800/50 rounded-lg border border-slate-600">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-xs font-bold text-blue-400">TIME-BASED EXITS</div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={config.enable_time_scaling}
+                      onChange={(e) => setConfig({ ...config, enable_time_scaling: e.target.checked })}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-xs text-slate-400">Enabled</span>
+                  </label>
+                </div>
+                {config.enable_time_scaling && (
+                  <div className="space-y-2 text-sm">
+                    <div>
+                      <label className="block text-slate-400 mb-1 text-xs">Early Game Stop Multiplier</label>
+                      <input
+                        type="text" inputMode="decimal"
+                        value={config.early_game_stop_multiplier}
+                        onChange={(e) => setConfig({ ...config, early_game_stop_multiplier: parseFloat(e.target.value) })}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-sm"
+                        step="0.1"
+                      />
+                      <p className="text-xs text-slate-500 mt-0.5">Q1-Q2: 1.5 = wider stops (12¢ vs 8¢)</p>
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 mb-1 text-xs">Late Game Stop Multiplier</label>
+                      <input
+                        type="text" inputMode="decimal"
+                        value={config.late_game_stop_multiplier}
+                        onChange={(e) => setConfig({ ...config, late_game_stop_multiplier: parseFloat(e.target.value) })}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-sm"
+                        step="0.1"
+                      />
+                      <p className="text-xs text-slate-500 mt-0.5">Q4: 0.7 = tighter stops (5.6¢ vs 8¢)</p>
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 mb-1 text-xs">Early Game Target Multiplier</label>
+                      <input
+                        type="text" inputMode="decimal"
+                        value={config.early_game_target_multiplier}
+                        onChange={(e) => setConfig({ ...config, early_game_target_multiplier: parseFloat(e.target.value) })}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-sm"
+                        step="0.1"
+                      />
+                      <p className="text-xs text-slate-500 mt-0.5">Q1-Q2: 1.3 = higher targets (20¢ vs 15¢)</p>
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 mb-1 text-xs">Late Game Target Multiplier</label>
+                      <input
+                        type="text" inputMode="decimal"
+                        value={config.late_game_target_multiplier}
+                        onChange={(e) => setConfig({ ...config, late_game_target_multiplier: parseFloat(e.target.value) })}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-sm"
+                        step="0.1"
+                      />
+                      <p className="text-xs text-slate-500 mt-0.5">Q4: 0.8 = lower targets (12¢ vs 15¢)</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Game Context Factors */}
+              <div className="p-3 bg-slate-800/50 rounded-lg border border-slate-600">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-xs font-bold text-green-400">GAME CONTEXT</div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={config.enable_game_context}
+                      onChange={(e) => setConfig({ ...config, enable_game_context: e.target.checked })}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-xs text-slate-400">Enabled</span>
+                  </label>
+                </div>
+                {config.enable_game_context && (
+                  <div className="space-y-2 text-sm">
+                    <div>
+                      <label className="block text-slate-400 mb-1 text-xs">Possession Bias (¢)</label>
+                      <input
+                        type="text" inputMode="numeric"
+                        value={config.possession_bias_cents}
+                        onChange={(e) => setConfig({ ...config, possession_bias_cents: parseInt(e.target.value) })}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-sm"
+                      />
+                      <p className="text-xs text-slate-500 mt-0.5">Favor team with ball possession</p>
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 mb-1 text-xs">Score Volatility Multiplier</label>
+                      <input
+                        type="text" inputMode="decimal"
+                        value={config.score_volatility_multiplier}
+                        onChange={(e) => setConfig({ ...config, score_volatility_multiplier: parseFloat(e.target.value) })}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-sm"
+                        step="0.1"
+                      />
+                      <p className="text-xs text-slate-500 mt-0.5">Wider stops when score is close</p>
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 mb-1 text-xs">Favorite Fade Threshold</label>
+                      <input
+                        type="text" inputMode="numeric"
+                        value={config.favorite_fade_threshold}
+                        onChange={(e) => setConfig({ ...config, favorite_fade_threshold: parseInt(e.target.value) })}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-sm"
+                      />
+                      <p className="text-xs text-slate-500 mt-0.5">Opening price &gt; this = fade favorites</p>
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 mb-1 text-xs">Underdog Support Threshold</label>
+                      <input
+                        type="text" inputMode="numeric"
+                        value={config.underdog_support_threshold}
+                        onChange={(e) => setConfig({ ...config, underdog_support_threshold: parseInt(e.target.value) })}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-sm"
+                      />
+                      <p className="text-xs text-slate-500 mt-0.5">Opening price &lt; this = support underdogs</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Dollar Cost Averaging (DCA) */}
+              <div className="p-3 bg-slate-800/50 rounded-lg border border-yellow-600/50">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-xs font-bold text-yellow-400">DOLLAR COST AVERAGING</div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={config.enable_dca}
+                      onChange={(e) => setConfig({ ...config, enable_dca: e.target.checked })}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-xs text-slate-400">Enabled</span>
+                  </label>
+                </div>
+                <p className="text-xs text-yellow-200/70 mb-2">⚠️ Higher risk: Adds to losing positions</p>
+                {config.enable_dca && (
+                  <div className="space-y-2 text-sm">
+                    <div>
+                      <label className="block text-slate-400 mb-1 text-xs">Max Additions</label>
+                      <input
+                        type="text" inputMode="numeric"
+                        value={config.dca_max_additions}
+                        onChange={(e) => setConfig({ ...config, dca_max_additions: parseInt(e.target.value) })}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-sm"
+                        min="1"
+                        max="5"
+                      />
+                      <p className="text-xs text-slate-500 mt-0.5">Max times to add to losing position (1-5)</p>
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 mb-1 text-xs">DCA Trigger (¢)</label>
+                      <input
+                        type="text" inputMode="numeric"
+                        value={config.dca_trigger_cents}
+                        onChange={(e) => setConfig({ ...config, dca_trigger_cents: parseInt(e.target.value) })}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-sm"
+                      />
+                      <p className="text-xs text-slate-500 mt-0.5">Add when price moves against you by this much</p>
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 mb-1 text-xs">DCA Size Multiplier</label>
+                      <input
+                        type="text" inputMode="decimal"
+                        value={config.dca_size_multiplier}
+                        onChange={(e) => setConfig({ ...config, dca_size_multiplier: parseFloat(e.target.value) })}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-sm"
+                        step="0.05"
+                      />
+                      <p className="text-xs text-slate-500 mt-0.5">Each add = previous × this (0.5-1.0)</p>
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 mb-1 text-xs">Min Time Remaining (seconds)</label>
+                      <input
+                        type="text" inputMode="numeric"
+                        value={config.dca_min_time_remaining}
+                        onChange={(e) => setConfig({ ...config, dca_min_time_remaining: parseInt(e.target.value) })}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-sm"
+                      />
+                      <p className="text-xs text-slate-500 mt-0.5">Don't DCA with less than this time left (600 = 10 min)</p>
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 mb-1 text-xs">Max Total Risk (%)</label>
+                      <input
+                        type="text" inputMode="decimal"
+                        value={config.dca_max_total_risk_pct * 100}
+                        onChange={(e) => setConfig({ ...config, dca_max_total_risk_pct: parseFloat(e.target.value) / 100 })}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-sm"
+                        step="5"
+                      />
+                      <p className="text-xs text-slate-500 mt-0.5">Max % of bankroll at risk across all adds</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Action Buttons */}
           <div className="mt-3 flex gap-2">
             {isRunning ? (
               <>

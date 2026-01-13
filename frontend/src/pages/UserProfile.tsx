@@ -37,6 +37,25 @@ interface BotConfig {
   profit_target: number;
   breakeven_trigger: number;
   position_size_pct: number;
+  // Time-based dynamic exits
+  enable_time_scaling?: boolean;
+  early_game_stop_multiplier?: number;
+  late_game_stop_multiplier?: number;
+  early_game_target_multiplier?: number;
+  late_game_target_multiplier?: number;
+  // Game context factors
+  enable_game_context?: boolean;
+  possession_bias_cents?: number;
+  score_volatility_multiplier?: number;
+  favorite_fade_threshold?: number;
+  underdog_support_threshold?: number;
+  // DCA parameters
+  enable_dca?: boolean;
+  dca_max_additions?: number;
+  dca_trigger_cents?: number;
+  dca_size_multiplier?: number;
+  dca_min_time_remaining?: number;
+  dca_max_total_risk_pct?: number;
 }
 
 export function UserProfile() {
@@ -52,9 +71,29 @@ export function UserProfile() {
     initial_stop: '8',
     profit_target: '15',
     breakeven_trigger: '5',
-    position_size_pct: '50'
+    position_size_pct: '50',
+    // Time-based
+    enable_time_scaling: true,
+    early_game_stop_multiplier: '1.5',
+    late_game_stop_multiplier: '0.7',
+    early_game_target_multiplier: '1.3',
+    late_game_target_multiplier: '0.8',
+    // Game context
+    enable_game_context: true,
+    possession_bias_cents: '2',
+    score_volatility_multiplier: '1.2',
+    favorite_fade_threshold: '65',
+    underdog_support_threshold: '35',
+    // DCA
+    enable_dca: false,
+    dca_max_additions: '2',
+    dca_trigger_cents: '5',
+    dca_size_multiplier: '0.75',
+    dca_min_time_remaining: '600',
+    dca_max_total_risk_pct: '75'
   });
   const [savingConfig, setSavingConfig] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   useEffect(() => {
     loadStats();
@@ -86,7 +125,26 @@ export function UserProfile() {
         initial_stop: config.initial_stop.toString(),
         profit_target: config.profit_target.toString(),
         breakeven_trigger: config.breakeven_trigger.toString(),
-        position_size_pct: (config.position_size_pct * 100).toString()
+        position_size_pct: (config.position_size_pct * 100).toString(),
+        // Time-based
+        enable_time_scaling: config.enable_time_scaling ?? true,
+        early_game_stop_multiplier: (config.early_game_stop_multiplier ?? 1.5).toString(),
+        late_game_stop_multiplier: (config.late_game_stop_multiplier ?? 0.7).toString(),
+        early_game_target_multiplier: (config.early_game_target_multiplier ?? 1.3).toString(),
+        late_game_target_multiplier: (config.late_game_target_multiplier ?? 0.8).toString(),
+        // Game context
+        enable_game_context: config.enable_game_context ?? true,
+        possession_bias_cents: (config.possession_bias_cents ?? 2).toString(),
+        score_volatility_multiplier: (config.score_volatility_multiplier ?? 1.2).toString(),
+        favorite_fade_threshold: (config.favorite_fade_threshold ?? 65).toString(),
+        underdog_support_threshold: (config.underdog_support_threshold ?? 35).toString(),
+        // DCA
+        enable_dca: config.enable_dca ?? false,
+        dca_max_additions: (config.dca_max_additions ?? 2).toString(),
+        dca_trigger_cents: (config.dca_trigger_cents ?? 5).toString(),
+        dca_size_multiplier: (config.dca_size_multiplier ?? 0.75).toString(),
+        dca_min_time_remaining: (config.dca_min_time_remaining ?? 600).toString(),
+        dca_max_total_risk_pct: ((config.dca_max_total_risk_pct ?? 0.75) * 100).toString()
       });
     } catch (e) {
       console.error('Failed to load bot config:', e);
@@ -102,7 +160,26 @@ export function UserProfile() {
         initial_stop: parseInt(inputValues.initial_stop, 10) || 0,
         profit_target: parseInt(inputValues.profit_target, 10) || 0,
         breakeven_trigger: parseInt(inputValues.breakeven_trigger, 10) || 0,
-        position_size_pct: (parseFloat(inputValues.position_size_pct) || 0) / 100
+        position_size_pct: (parseFloat(inputValues.position_size_pct) || 0) / 100,
+        // Time-based
+        enable_time_scaling: inputValues.enable_time_scaling,
+        early_game_stop_multiplier: parseFloat(inputValues.early_game_stop_multiplier) || 1.5,
+        late_game_stop_multiplier: parseFloat(inputValues.late_game_stop_multiplier) || 0.7,
+        early_game_target_multiplier: parseFloat(inputValues.early_game_target_multiplier) || 1.3,
+        late_game_target_multiplier: parseFloat(inputValues.late_game_target_multiplier) || 0.8,
+        // Game context
+        enable_game_context: inputValues.enable_game_context,
+        possession_bias_cents: parseInt(inputValues.possession_bias_cents, 10) || 2,
+        score_volatility_multiplier: parseFloat(inputValues.score_volatility_multiplier) || 1.2,
+        favorite_fade_threshold: parseInt(inputValues.favorite_fade_threshold, 10) || 65,
+        underdog_support_threshold: parseInt(inputValues.underdog_support_threshold, 10) || 35,
+        // DCA
+        enable_dca: inputValues.enable_dca,
+        dca_max_additions: parseInt(inputValues.dca_max_additions, 10) || 2,
+        dca_trigger_cents: parseInt(inputValues.dca_trigger_cents, 10) || 5,
+        dca_size_multiplier: parseFloat(inputValues.dca_size_multiplier) || 0.75,
+        dca_min_time_remaining: parseInt(inputValues.dca_min_time_remaining, 10) || 600,
+        dca_max_total_risk_pct: (parseFloat(inputValues.dca_max_total_risk_pct) || 75) / 100
       };
 
       console.log('Saving bot config:', configToSave);
@@ -115,7 +192,26 @@ export function UserProfile() {
         initial_stop: configToSave.initial_stop.toString(),
         profit_target: configToSave.profit_target.toString(),
         breakeven_trigger: configToSave.breakeven_trigger.toString(),
-        position_size_pct: (configToSave.position_size_pct * 100).toString()
+        position_size_pct: (configToSave.position_size_pct * 100).toString(),
+        // Time-based
+        enable_time_scaling: configToSave.enable_time_scaling ?? true,
+        early_game_stop_multiplier: (configToSave.early_game_stop_multiplier ?? 1.5).toString(),
+        late_game_stop_multiplier: (configToSave.late_game_stop_multiplier ?? 0.7).toString(),
+        early_game_target_multiplier: (configToSave.early_game_target_multiplier ?? 1.3).toString(),
+        late_game_target_multiplier: (configToSave.late_game_target_multiplier ?? 0.8).toString(),
+        // Game context
+        enable_game_context: configToSave.enable_game_context ?? true,
+        possession_bias_cents: (configToSave.possession_bias_cents ?? 2).toString(),
+        score_volatility_multiplier: (configToSave.score_volatility_multiplier ?? 1.2).toString(),
+        favorite_fade_threshold: (configToSave.favorite_fade_threshold ?? 65).toString(),
+        underdog_support_threshold: (configToSave.underdog_support_threshold ?? 35).toString(),
+        // DCA
+        enable_dca: configToSave.enable_dca ?? false,
+        dca_max_additions: (configToSave.dca_max_additions ?? 2).toString(),
+        dca_trigger_cents: (configToSave.dca_trigger_cents ?? 5).toString(),
+        dca_size_multiplier: (configToSave.dca_size_multiplier ?? 0.75).toString(),
+        dca_min_time_remaining: (configToSave.dca_min_time_remaining ?? 600).toString(),
+        dca_max_total_risk_pct: ((configToSave.dca_max_total_risk_pct ?? 0.75) * 100).toString()
       });
       alert('Default bot configuration saved successfully!');
     } catch (e: any) {
@@ -350,6 +446,221 @@ export function UserProfile() {
               <p className="text-xs text-slate-500 mt-1">Percentage of bankroll per trade</p>
             </div>
           </div>
+
+          {/* Advanced Settings Toggle */}
+          <button
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="w-full py-2 px-3 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm font-medium transition-colors flex items-center justify-between mt-4"
+          >
+            <span>Advanced Settings</span>
+            <span className="text-xs">{showAdvanced ? '▼' : '▶'}</span>
+          </button>
+
+          {/* Advanced Configuration */}
+          {showAdvanced && (
+            <div className="mt-4 space-y-4">
+              {/* Time-Based Dynamic Exits */}
+              <div className="p-3 bg-slate-700/50 rounded-lg border border-slate-600">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-xs font-bold text-blue-400">TIME-BASED EXITS</div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={inputValues.enable_time_scaling}
+                      onChange={(e) => setInputValues({ ...inputValues, enable_time_scaling: e.target.checked })}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-xs text-slate-400">Enabled</span>
+                  </label>
+                </div>
+                {inputValues.enable_time_scaling && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <label className="block text-slate-400 mb-1 text-xs">Early Game Stop Multiplier</label>
+                      <input
+                        type="text" inputMode="decimal"
+                        value={inputValues.early_game_stop_multiplier}
+                        onChange={(e) => setInputValues({ ...inputValues, early_game_stop_multiplier: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
+                        step="0.1"
+                      />
+                      <p className="text-xs text-slate-500 mt-0.5">Q1-Q2: 1.5 = wider stops</p>
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 mb-1 text-xs">Late Game Stop Multiplier</label>
+                      <input
+                        type="text" inputMode="decimal"
+                        value={inputValues.late_game_stop_multiplier}
+                        onChange={(e) => setInputValues({ ...inputValues, late_game_stop_multiplier: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
+                        step="0.1"
+                      />
+                      <p className="text-xs text-slate-500 mt-0.5">Q4: 0.7 = tighter stops</p>
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 mb-1 text-xs">Early Game Target Multiplier</label>
+                      <input
+                        type="text" inputMode="decimal"
+                        value={inputValues.early_game_target_multiplier}
+                        onChange={(e) => setInputValues({ ...inputValues, early_game_target_multiplier: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
+                        step="0.1"
+                      />
+                      <p className="text-xs text-slate-500 mt-0.5">Q1-Q2: 1.3 = higher targets</p>
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 mb-1 text-xs">Late Game Target Multiplier</label>
+                      <input
+                        type="text" inputMode="decimal"
+                        value={inputValues.late_game_target_multiplier}
+                        onChange={(e) => setInputValues({ ...inputValues, late_game_target_multiplier: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
+                        step="0.1"
+                      />
+                      <p className="text-xs text-slate-500 mt-0.5">Q4: 0.8 = lower targets</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Game Context Factors */}
+              <div className="p-3 bg-slate-700/50 rounded-lg border border-slate-600">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-xs font-bold text-green-400">GAME CONTEXT</div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={inputValues.enable_game_context}
+                      onChange={(e) => setInputValues({ ...inputValues, enable_game_context: e.target.checked })}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-xs text-slate-400">Enabled</span>
+                  </label>
+                </div>
+                {inputValues.enable_game_context && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <label className="block text-slate-400 mb-1 text-xs">Possession Bias (¢)</label>
+                      <input
+                        type="text" inputMode="numeric"
+                        value={inputValues.possession_bias_cents}
+                        onChange={(e) => setInputValues({ ...inputValues, possession_bias_cents: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
+                      />
+                      <p className="text-xs text-slate-500 mt-0.5">Favor team with possession</p>
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 mb-1 text-xs">Score Volatility Multiplier</label>
+                      <input
+                        type="text" inputMode="decimal"
+                        value={inputValues.score_volatility_multiplier}
+                        onChange={(e) => setInputValues({ ...inputValues, score_volatility_multiplier: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
+                        step="0.1"
+                      />
+                      <p className="text-xs text-slate-500 mt-0.5">Wider stops when score is close</p>
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 mb-1 text-xs">Favorite Fade Threshold</label>
+                      <input
+                        type="text" inputMode="numeric"
+                        value={inputValues.favorite_fade_threshold}
+                        onChange={(e) => setInputValues({ ...inputValues, favorite_fade_threshold: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
+                      />
+                      <p className="text-xs text-slate-500 mt-0.5">Opening price &gt; this = fade favorites</p>
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 mb-1 text-xs">Underdog Support Threshold</label>
+                      <input
+                        type="text" inputMode="numeric"
+                        value={inputValues.underdog_support_threshold}
+                        onChange={(e) => setInputValues({ ...inputValues, underdog_support_threshold: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
+                      />
+                      <p className="text-xs text-slate-500 mt-0.5">Opening price &lt; this = support underdogs</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Dollar Cost Averaging */}
+              <div className="p-3 bg-slate-700/50 rounded-lg border border-yellow-600/50">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-xs font-bold text-yellow-400">DOLLAR COST AVERAGING</div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={inputValues.enable_dca}
+                      onChange={(e) => setInputValues({ ...inputValues, enable_dca: e.target.checked })}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-xs text-slate-400">Enabled</span>
+                  </label>
+                </div>
+                <p className="text-xs text-yellow-200/70 mb-2">⚠️ Higher risk: Adds to losing positions</p>
+                {inputValues.enable_dca && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <label className="block text-slate-400 mb-1 text-xs">Max Additions</label>
+                      <input
+                        type="text" inputMode="numeric"
+                        value={inputValues.dca_max_additions}
+                        onChange={(e) => setInputValues({ ...inputValues, dca_max_additions: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
+                        min="1"
+                        max="5"
+                      />
+                      <p className="text-xs text-slate-500 mt-0.5">Max times to add to position (1-5)</p>
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 mb-1 text-xs">DCA Trigger (¢)</label>
+                      <input
+                        type="text" inputMode="numeric"
+                        value={inputValues.dca_trigger_cents}
+                        onChange={(e) => setInputValues({ ...inputValues, dca_trigger_cents: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
+                      />
+                      <p className="text-xs text-slate-500 mt-0.5">Add when price moves against you</p>
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 mb-1 text-xs">DCA Size Multiplier</label>
+                      <input
+                        type="text" inputMode="decimal"
+                        value={inputValues.dca_size_multiplier}
+                        onChange={(e) => setInputValues({ ...inputValues, dca_size_multiplier: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
+                        step="0.05"
+                      />
+                      <p className="text-xs text-slate-500 mt-0.5">Each add = previous × this</p>
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 mb-1 text-xs">Min Time Remaining (sec)</label>
+                      <input
+                        type="text" inputMode="numeric"
+                        value={inputValues.dca_min_time_remaining}
+                        onChange={(e) => setInputValues({ ...inputValues, dca_min_time_remaining: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
+                      />
+                      <p className="text-xs text-slate-500 mt-0.5">Don't DCA with less time left</p>
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 mb-1 text-xs">Max Total Risk (%)</label>
+                      <input
+                        type="text" inputMode="decimal"
+                        value={inputValues.dca_max_total_risk_pct}
+                        onChange={(e) => setInputValues({ ...inputValues, dca_max_total_risk_pct: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
+                        step="5"
+                      />
+                      <p className="text-xs text-slate-500 mt-0.5">Max % of bankroll at risk</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="mt-4">
             <button
               onClick={handleSaveBotConfig}

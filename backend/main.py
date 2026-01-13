@@ -722,7 +722,6 @@ async def update_bot_config(event_ticker: str, config: BotConfig):
 async def start_live_bot(
     event_ticker: str,
     user_id: int = Depends(get_current_user_id),
-    bankroll: float = 500.0,
     momentum_threshold: int = 8,
     initial_stop: int = 8,
     profit_target: int = 15,
@@ -746,9 +745,9 @@ async def start_live_bot(
     dca_trigger_cents: int = 5,
     dca_size_multiplier: float = 0.75,
     dca_min_time_remaining: int = 600,
-    dca_max_total_risk_pct: float = 0.75
+    dca_max_total_risk_pct: float = 0.20  # 20% of auto-allocated bankroll
 ):
-    """Start live paper trading bot"""
+    """Start live paper trading bot - automatically allocates 10% of wallet as bankroll"""
 
     if event_ticker not in active_loggers:
         raise HTTPException(status_code=400, detail="Game must be logging first")
@@ -761,10 +760,13 @@ async def start_live_bot(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    if user['current_balance'] < bankroll:
+    # Auto-allocate 10% of wallet as bankroll
+    bankroll = user['current_balance'] * 0.10
+
+    if bankroll < 10:  # Minimum $10 bankroll
         raise HTTPException(
             status_code=400,
-            detail=f"Insufficient funds. You have ${user['current_balance']:.2f}, but need ${bankroll:.2f}"
+            detail=f"Insufficient funds. Need at least $100 wallet balance for $10 minimum bankroll. Current: ${user['current_balance']:.2f}"
         )
 
     # Deduct allocation from user wallet

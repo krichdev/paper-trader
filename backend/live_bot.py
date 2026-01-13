@@ -39,7 +39,7 @@ class LivePaperBot:
         dca_trigger_cents: int = 5,
         dca_size_multiplier: float = 0.75,
         dca_min_time_remaining: int = 600,
-        dca_max_total_risk_pct: float = 0.75
+        dca_max_total_risk_pct: float = 0.20  # 20% of auto-allocated bankroll
     ):
         self.event_ticker = event_ticker
         self.db = db

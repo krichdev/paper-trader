@@ -62,7 +62,6 @@ export function LiveBotPanel({
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [timeSinceUpdate, setTimeSinceUpdate] = useState<string>('--');
   const [config, setConfig] = useState({
-    bankroll: 500,
     momentum_threshold: 8,
     initial_stop: 8,
     profit_target: 15,
@@ -86,7 +85,7 @@ export function LiveBotPanel({
     dca_trigger_cents: 5,
     dca_size_multiplier: 0.75,
     dca_min_time_remaining: 600,
-    dca_max_total_risk_pct: 0.75
+    dca_max_total_risk_pct: 0.20  // 20% of auto-allocated bankroll
   });
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -262,19 +261,9 @@ export function LiveBotPanel({
           {/* Basic Configuration */}
           <div className="space-y-2 text-sm mb-4">
             <div className="text-xs font-bold text-purple-400 mb-2">BASIC SETTINGS</div>
-            {!isRunning && (
-              <div>
-                <label className="block text-slate-400 mb-1">Bankroll ($)</label>
-                <input
-                  type="text" inputMode="numeric"
-                  value={config.bankroll}
-                  onChange={(e) => setConfig({ ...config, bankroll: parseFloat(e.target.value) })}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded"
-                  step="50"
-                />
-                <p className="text-xs text-slate-500 mt-1">Cannot be changed after bot starts</p>
-              </div>
-            )}
+            <div className="mb-3 p-2 bg-purple-600/10 border border-purple-600/30 rounded text-xs text-purple-300">
+              💡 Bankroll auto-allocated: 10% of your wallet per game
+            </div>
             <div>
               <label className="block text-slate-400 mb-1">Momentum Threshold (¢)</label>
               <input

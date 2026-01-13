@@ -90,7 +90,7 @@ export function UserProfile() {
     dca_trigger_cents: '5',
     dca_size_multiplier: '0.75',
     dca_min_time_remaining: '600',
-    dca_max_total_risk_pct: '75'
+    dca_max_total_risk_pct: '20'  // 20% of auto-allocated bankroll
   });
   const [savingConfig, setSavingConfig] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -144,7 +144,7 @@ export function UserProfile() {
         dca_trigger_cents: (config.dca_trigger_cents ?? 5).toString(),
         dca_size_multiplier: (config.dca_size_multiplier ?? 0.75).toString(),
         dca_min_time_remaining: (config.dca_min_time_remaining ?? 600).toString(),
-        dca_max_total_risk_pct: ((config.dca_max_total_risk_pct ?? 0.75) * 100).toString()
+        dca_max_total_risk_pct: ((config.dca_max_total_risk_pct ?? 0.20) * 100).toString()
       });
     } catch (e) {
       console.error('Failed to load bot config:', e);
@@ -179,7 +179,7 @@ export function UserProfile() {
         dca_trigger_cents: parseInt(inputValues.dca_trigger_cents, 10) || 5,
         dca_size_multiplier: parseFloat(inputValues.dca_size_multiplier) || 0.75,
         dca_min_time_remaining: parseInt(inputValues.dca_min_time_remaining, 10) || 600,
-        dca_max_total_risk_pct: (parseFloat(inputValues.dca_max_total_risk_pct) || 75) / 100
+        dca_max_total_risk_pct: (parseFloat(inputValues.dca_max_total_risk_pct) || 20) / 100
       };
 
       console.log('Saving bot config:', configToSave);
@@ -211,7 +211,7 @@ export function UserProfile() {
         dca_trigger_cents: (configToSave.dca_trigger_cents ?? 5).toString(),
         dca_size_multiplier: (configToSave.dca_size_multiplier ?? 0.75).toString(),
         dca_min_time_remaining: (configToSave.dca_min_time_remaining ?? 600).toString(),
-        dca_max_total_risk_pct: ((configToSave.dca_max_total_risk_pct ?? 0.75) * 100).toString()
+        dca_max_total_risk_pct: ((configToSave.dca_max_total_risk_pct ?? 0.20) * 100).toString()
       });
       alert('Default bot configuration saved successfully!');
     } catch (e: any) {
